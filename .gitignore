@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.xlsx
+*.zip
+sample_export_unzipped/
+zip_out/
