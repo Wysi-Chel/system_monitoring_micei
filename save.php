@@ -82,6 +82,17 @@ function sentenceCaseInput(?string $value): string
     return implode('', $normalizedParts);
 }
 
+function uppercaseInput(?string $value): string
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return '';
+    }
+
+    $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+    return mb_strtoupper($value, 'UTF-8');
+}
+
 function normalizeMultiSelectInput($value): string
 {
     if (!is_array($value)) {
@@ -157,10 +168,14 @@ if ($amount === "") {
     $amount = null;
 }
 
-$textFields = [
+$optionFields = [
     "branch",
     "department",
     "module",
+    "classification",
+];
+
+$uppercaseFields = [
     "user_name",
     "invoice_reference",
     "payment_reference",
@@ -169,15 +184,18 @@ $textFields = [
     "approved_by",
     "processed_by",
     "remarks",
-    "classification",
     "system_admin",
     "ticket",
     "offense",
 ];
 
 $normalizedText = [];
-foreach ($textFields as $field) {
+foreach ($optionFields as $field) {
     $normalizedText[$field] = sentenceCaseInput($_POST[$field] ?? "");
+}
+
+foreach ($uppercaseFields as $field) {
+    $normalizedText[$field] = uppercaseInput($_POST[$field] ?? "");
 }
 
 $normalizedText["processed_type"] = normalizeMultiSelectInput($_POST["processed_type"] ?? []);

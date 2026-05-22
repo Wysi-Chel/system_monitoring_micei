@@ -137,6 +137,11 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             font-size: 14px;
         }
 
+        input[type="text"],
+        textarea {
+            text-transform: uppercase;
+        }
+
         input:focus, textarea:focus {
             outline: none;
             border-color: #8b5cf6;
@@ -835,6 +840,22 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </section>
 </main>
+
+<script>
+    (function () {
+        var uppercaseFields = document.querySelectorAll('input[type="text"], textarea');
+
+        for (var index = 0; index < uppercaseFields.length; index++) {
+            uppercaseFields[index].addEventListener('input', function () {
+                this.value = this.value.toUpperCase();
+            });
+
+            if (uppercaseFields[index].value) {
+                uppercaseFields[index].value = uppercaseFields[index].value.toUpperCase();
+            }
+        }
+    }());
+</script>
 
 <?php if (isset($_GET["saved"])): ?>
     <div class="modal-overlay" id="saved-modal" role="presentation">
