@@ -61,6 +61,12 @@ try {
     $tempFile = buildXlsxFile("Monitoring Summary", $headers, $rows);
     downloadXlsxFile($tempFile, $filename);
 } catch (Throwable $e) {
+    error_log(sprintf(
+        "[system_monitoring] Excel export failed: %s in %s on line %d",
+        $e->getMessage(),
+        $e->getFile(),
+        $e->getLine()
+    ));
     http_response_code(500);
     header("Content-Type: text/plain; charset=UTF-8");
     echo "Unable to generate the Excel file right now.";
@@ -169,13 +175,40 @@ function runPythonExporter(string $payloadPath, string $xlsxPath): void
 
 function resolvePythonCommand(): string
 {
+    global $pythonCommand;
+
+    $candidates = [];
+
+    if (isset($pythonCommand) && is_string($pythonCommand) && trim($pythonCommand) !== "") {
+        $candidates[] = trim($pythonCommand);
+    }
+
     foreach (["python", "py -3"] as $candidate) {
-        if (canRunCommand($candidate . " --version")) {
-            return $candidate;
+        $candidates[] = $candidate;
+    }
+
+    foreach ($candidates as $candidate) {
+        $command = normalizePythonCommand($candidate);
+        if (canRunCommand($command . " --version")) {
+            return $command;
         }
     }
 
     throw new RuntimeException("Python with openpyxl is not available for Excel export.");
+}
+
+function normalizePythonCommand(string $command): string
+{
+    $command = trim($command);
+    if ($command === "") {
+        return $command;
+    }
+
+    if (preg_match('/\.exe$/i', $command) || str_contains($command, "\\") || str_contains($command, "/")) {
+        return escapeshellarg($command);
+    }
+
+    return $command;
 }
 
 function canRunCommand(string $command): bool

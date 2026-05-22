@@ -82,6 +82,30 @@ function sentenceCaseInput(?string $value): string
     return implode('', $normalizedParts);
 }
 
+function normalizeMultiSelectInput($value): string
+{
+    if (!is_array($value)) {
+        return sentenceCaseInput($value === null ? '' : (string) $value);
+    }
+
+    $normalizedValues = [];
+
+    foreach ($value as $item) {
+        if (!is_scalar($item)) {
+            continue;
+        }
+
+        $normalizedItem = sentenceCaseInput((string) $item);
+        if ($normalizedItem === '' || in_array($normalizedItem, $normalizedValues, true)) {
+            continue;
+        }
+
+        $normalizedValues[] = $normalizedItem;
+    }
+
+    return implode(', ', $normalizedValues);
+}
+
 $sql = "INSERT INTO monitoring_records (
     date_recorded,
     transaction_date,
@@ -143,13 +167,11 @@ $textFields = [
     "client_name",
     "reason",
     "approved_by",
-    "processed_type",
     "processed_by",
     "remarks",
     "classification",
     "system_admin",
     "ticket",
-    "status",
     "offense",
 ];
 
@@ -157,6 +179,9 @@ $normalizedText = [];
 foreach ($textFields as $field) {
     $normalizedText[$field] = sentenceCaseInput($_POST[$field] ?? "");
 }
+
+$normalizedText["processed_type"] = normalizeMultiSelectInput($_POST["processed_type"] ?? []);
+$normalizedText["status"] = normalizeMultiSelectInput($_POST["status"] ?? []);
 
 $stmt->execute([
     ":date_recorded" => $_POST["date_recorded"] ?? null,

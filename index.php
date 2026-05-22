@@ -3,24 +3,28 @@ require "config.php";
 
 $branchOptions = ["GSC", "KID", "GLA"];
 $departmentOptions = ["Accounting", "Sales", "Service", "Parts", "BNC", "CNC", "Manila", "BRP"];
-$moduleOptions = ["AMIS", "CMIS", "CSMS", "SMIS", "PMIS", "Others"];
+$moduleOptions = ["AMIS", "CMIS", "CSMS", "SMIS", "PMIS"];
 $classificationOptions = ["User Error", "System Error", "Data Correction", "Others"];
-$processedTypeOptions = ["Cancellation", "Correction", "Adjustment", "Reversal", "Others"];
-$statusOptions = ["Pending", "Done", "Cancelled", "Unposted"];
+$processedTypeOptions = ["Cancellation", "Unposting", "Void", "Others"];
+$statusOptions = ["Pending", "Done", "Cancelled", "Unposted", "Voided"];
 $today = (new DateTimeImmutable("now", new DateTimeZone("Asia/Manila")))->format("Y-m-d");
 
-function renderOptionButtons(string $name, array $options): void
+function renderOptionButtons(string $name, array $options, bool $allowMultiple = false): void
 {
-    echo '<div class="option-group" role="radiogroup" aria-label="' . htmlspecialchars($name, ENT_QUOTES, "UTF-8") . '">';
+    $groupRole = $allowMultiple ? 'group' : 'radiogroup';
+    $inputType = $allowMultiple ? 'checkbox' : 'radio';
+    $inputName = $allowMultiple ? $name . '[]' : $name;
+
+    echo '<div class="option-group" role="' . $groupRole . '" aria-label="' . htmlspecialchars($name, ENT_QUOTES, "UTF-8") . '">';
 
     foreach ($options as $option) {
         $id = $name . '_' . preg_replace('/[^a-z0-9]+/i', '_', strtolower($option));
         $safeId = htmlspecialchars($id, ENT_QUOTES, "UTF-8");
-        $safeName = htmlspecialchars($name, ENT_QUOTES, "UTF-8");
+        $safeName = htmlspecialchars($inputName, ENT_QUOTES, "UTF-8");
         $safeOption = htmlspecialchars($option, ENT_QUOTES, "UTF-8");
 
         echo '<label class="option-button" for="' . $safeId . '">';
-        echo '<input type="radio" id="' . $safeId . '" name="' . $safeName . '" value="' . $safeOption . '">';
+        echo '<input type="' . $inputType . '" id="' . $safeId . '" name="' . $safeName . '" value="' . $safeOption . '">';
         echo '<span>' . $safeOption . '</span>';
         echo '</label>';
     }
@@ -339,13 +343,67 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             color: #0f172a;
         }
 
-        .success-message {
+        .modal-open {
+            overflow: hidden;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.64);
+            z-index: 1000;
+        }
+
+        .modal-window {
+            width: min(100%, 420px);
+            background: white;
+            border-radius: 18px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+            position: relative;
+        }
+
+        .modal-body {
+            padding: 26px 24px 22px;
+            text-align: center;
+        }
+
+        .modal-icon {
+            width: 58px;
+            height: 58px;
+            margin: 0 auto 14px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
             background: #dcfce7;
             color: #166534;
-            padding: 10px 14px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .modal-title {
+            margin: 0 0 8px;
+            color: #0f172a;
+            font-size: 22px;
+        }
+
+        .modal-message {
+            margin: 0;
+            color: #475569;
             font-size: 14px;
+        }
+
+        .modal-actions {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-button {
+            min-width: 110px;
         }
 
         .table-wrapper {
@@ -449,8 +507,31 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             label,
             .note,
-            .success-message {
+            .modal-message {
                 font-size: 12px;
+            }
+
+            .modal-overlay {
+                padding: 16px;
+            }
+
+            .modal-window {
+                border-radius: 14px;
+            }
+
+            .modal-body {
+                padding: 22px 18px 18px;
+            }
+
+            .modal-icon {
+                width: 50px;
+                height: 50px;
+                margin-bottom: 12px;
+                font-size: 24px;
+            }
+
+            .modal-title {
+                font-size: 18px;
             }
 
             .form-section.compact-section {
@@ -555,10 +636,6 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <section class="card">
         <h2>Encode New Record</h2>
 
-        <?php if (isset($_GET["saved"])): ?>
-            <div class="success-message">Record successfully saved to the database.</div>
-        <?php endif; ?>
-
         <form action="save.php" method="POST">
             <section class="form-section compact-section">
                 <div class="section-header">
@@ -587,12 +664,12 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <?php renderOptionButtons("branch", $branchOptions); ?>
                     </div>
 
-                    <div class="selector-field">
+                    <div class="selector-field selector-field-medium">
                         <label>Department</label>
                         <?php renderOptionButtons("department", $departmentOptions); ?>
                     </div>
 
-                    <div class="selector-field">
+                    <div class="selector-field selector-field-medium">
                         <label>Module</label>
                         <?php renderOptionButtons("module", $moduleOptions); ?>
                     </div>
@@ -615,7 +692,7 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </div>
 
                     <div class="field">
-                        <label>Invoice Reference</label>
+                        <label>Transaction Reference</label>
                         <input type="text" name="invoice_reference">
                     </div>
 
@@ -641,7 +718,7 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     <div class="field field-span-2">
                         <label>Remarks</label>
-                        <input type="text" name="remarks" placeholder="e.g., Cancelled">
+                        <input type="text" name="remarks">
                     </div>
 
                     <div class="field">
@@ -675,14 +752,14 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <?php renderOptionButtons("classification", $classificationOptions); ?>
                     </div>
 
-                    <div class="selector-field">
+                    <div class="selector-field-medium">
                         <label>Processed Type</label>
-                        <?php renderOptionButtons("processed_type", $processedTypeOptions); ?>
+                        <?php renderOptionButtons("processed_type", $processedTypeOptions, true); ?>
                     </div>
 
                     <div class="selector-field selector-field-medium">
                         <label>Status</label>
-                        <?php renderOptionButtons("status", $statusOptions); ?>
+                        <?php renderOptionButtons("status", $statusOptions, true); ?>
                     </div>
                 </div>
             </section>
@@ -758,6 +835,66 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </section>
 </main>
+
+<?php if (isset($_GET["saved"])): ?>
+    <div class="modal-overlay" id="saved-modal" role="presentation">
+        <div class="modal-window" role="dialog" aria-modal="true" aria-labelledby="saved-modal-title" aria-describedby="saved-modal-message">
+            <div class="modal-body">
+                <div class="modal-icon" aria-hidden="true">&#10003;</div>
+                <h3 class="modal-title" id="saved-modal-title">Record Saved</h3>
+                <p class="modal-message" id="saved-modal-message">Record successfully saved to the database.</p>
+                <div class="modal-actions">
+                    <button type="button" class="primary modal-button" id="saved-modal-ok">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var modal = document.getElementById('saved-modal');
+            var okButton = document.getElementById('saved-modal-ok');
+
+            if (!modal || !okButton) {
+                return;
+            }
+
+            document.body.classList.add('modal-open');
+
+            var closeModal = function () {
+                modal.style.display = 'none';
+                document.body.classList.remove('modal-open');
+
+                if (window.history && typeof window.history.replaceState === 'function' && typeof URL === 'function') {
+                    var url = new URL(window.location.href);
+                    url.searchParams.delete('saved');
+                    var query = url.searchParams.toString();
+                    var nextUrl = url.pathname + (query ? '?' + query : '') + url.hash;
+                    window.history.replaceState({}, document.title, nextUrl);
+                }
+            };
+
+            okButton.addEventListener('click', function (event) {
+                event.preventDefault();
+                closeModal();
+            });
+
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && modal.style.display !== 'none') {
+                    closeModal();
+                }
+            });
+
+            okButton.focus();
+        }());
+    </script>
+<?php endif; ?>
 
 </body>
 </html>
