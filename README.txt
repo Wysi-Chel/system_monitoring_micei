@@ -55,7 +55,7 @@ HOW OTHER COMPUTERS CAN ACCESS IT:
    192.168.99.141
 
 4. On another computer connected to the same Wi-Fi/LAN, open:
-   http://192.168.99.1415/system_monitoring/
+   http://192.168.99.141/system_monitoring/
 
 Replace 192.168.99.141 with the actual IPv4 address of the main computer.
 
