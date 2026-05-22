@@ -37,6 +37,8 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <meta charset="UTF-8">
     <title>System Monitoring Form</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="assets/images/mitsubishi-logo.png">
+    <link rel="shortcut icon" type="image/png" href="assets/images/mitsubishi-logo.png">
 
     <style>
         * {
