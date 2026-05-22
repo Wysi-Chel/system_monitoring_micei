@@ -31,7 +31,7 @@ HOW TO SET UP USING XAMPP:
 2. Open XAMPP Control Panel.
 3. Start Apache.
 4. Start MySQL.
-5. Copy the folder "system_monitoring_php_mysql" to:
+5. Copy the folder "system_monitoring" to:
    C:\xampp\htdocs\
 
 6. Open your browser and go to:
@@ -42,7 +42,7 @@ HOW TO SET UP USING XAMPP:
 9. Click Go.
 
 10. Open:
-    http://localhost/system_monitoring_php_mysql/
+    http://localhost/system_monitoring/
 
 HOW OTHER COMPUTERS CAN ACCESS IT:
 
@@ -52,12 +52,12 @@ HOW OTHER COMPUTERS CAN ACCESS IT:
 
 3. Look for IPv4 Address.
    Example:
-   192.168.1.25
+   192.168.99.141
 
 4. On another computer connected to the same Wi-Fi/LAN, open:
-   http://192.168.1.25/system_monitoring_php_mysql/
+   http://192.168.99.1415/system_monitoring/
 
-Replace 192.168.1.25 with the actual IPv4 address of the main computer.
+Replace 192.168.99.141 with the actual IPv4 address of the main computer.
 
 IMPORTANT FIREWALL NOTE:
 
