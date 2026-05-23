@@ -8,6 +8,7 @@ $today = (new DateTimeImmutable("now", new DateTimeZone("Asia/Manila")))->format
 $company = resolveCompanyConfig($_GET["company"] ?? null, $companyConfigs);
 $fixedBranch = $company["fixed_branch"] ?? null;
 $showBranchSelector = $fixedBranch === null;
+ensureMonitoringTable($pdo, $company);
 
 $filterOptions = [
     "branch" => $branchOptions,

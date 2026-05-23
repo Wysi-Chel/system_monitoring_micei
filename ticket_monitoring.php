@@ -6,10 +6,13 @@ require __DIR__ . "/includes/monitoring_repository.php";
 
 $today = (new DateTimeImmutable("now", new DateTimeZone("Asia/Manila")))->format("Y-m-d");
 $company = resolveCompanyConfig($_GET["company"] ?? null, $companyConfigs);
+if (!companySupportsTicketMonitoring($company)) {
+    header("Location: index.php?company=" . urlencode($company["key"]));
+    exit;
+}
 $fixedBranch = $company["fixed_branch"] ?? null;
 $showBranchSelector = $fixedBranch === null;
 ensureTicketMonitoringTable($pdo, $company);
-ensureResolvedTicketMonitoringTable($pdo, $company);
 
 $filterOptions = [
     "branch" => $branchOptions,

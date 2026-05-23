@@ -5,10 +5,12 @@ require __DIR__ . "/includes/monitoring_helpers.php";
 require __DIR__ . "/includes/monitoring_repository.php";
 
 $company = resolveCompanyConfig($_POST["company"] ?? $_GET["company"] ?? null, $companyConfigs);
+if (!companySupportsTicketMonitoring($company)) {
+    header("Location: index.php?company=" . urlencode($company["key"]));
+    exit;
+}
 ensureTicketMonitoringTable($pdo, $company);
-ensureResolvedTicketMonitoringTable($pdo, $company);
 $ticketTableNameSql = quoteMysqlIdentifier($company["ticket_table_name"]);
-$resolvedTicketTableNameSql = quoteMysqlIdentifier($company["resolved_ticket_table_name"]);
 
 function normalizeTicketField(?string $value, bool $uppercase = false): string
 {
@@ -76,12 +78,6 @@ $stmt->execute([
 ]);
 
 $ticketId = (int) $pdo->lastInsertId();
-if (isLockedTicketStatus($ticketStatus)) {
-    $savedRecord = fetchTicketMonitoringRecordById($pdo, $ticketTableNameSql, $ticketId);
-    if ($savedRecord !== null) {
-        archiveResolvedTicketRecord($pdo, $resolvedTicketTableNameSql, $savedRecord);
-    }
-}
 
 $redirectQuery = http_build_query([
     "company" => $company["key"],

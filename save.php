@@ -2,6 +2,7 @@
 require "config.php";
 
 $company = resolveCompanyConfig($_POST["company"] ?? $_GET["company"] ?? null, $companyConfigs);
+ensureMonitoringTable($pdo, $company);
 $tableNameSql = quoteMysqlIdentifier($company["table_name"]);
 
 function shouldPreserveToken(string $token): bool

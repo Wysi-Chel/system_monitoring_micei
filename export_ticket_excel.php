@@ -5,8 +5,11 @@ require __DIR__ . "/includes/monitoring_helpers.php";
 require __DIR__ . "/includes/monitoring_repository.php";
 
 $company = resolveCompanyConfig($_GET["company"] ?? null, $companyConfigs);
+if (!companySupportsTicketMonitoring($company)) {
+    header("Location: index.php?company=" . urlencode($company["key"]));
+    exit;
+}
 ensureTicketMonitoringTable($pdo, $company);
-ensureResolvedTicketMonitoringTable($pdo, $company);
 
 $filterOptions = [
     "branch" => $branchOptions,

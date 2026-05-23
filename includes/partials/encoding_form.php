@@ -70,6 +70,7 @@
 
                 <div class="field">
                     <label for="ticket">Ticket</label>
+                    <?php if (companySupportsTicketMonitoring($company)): ?>
                     <div class="inline-input-row">
                         <input type="text" id="ticket" name="ticket">
                         <a
@@ -79,6 +80,9 @@
                             data-base-href="<?= e($ticketMonitoringUrl) ?>"
                         >Ticket Monitoring</a>
                     </div>
+                    <?php else: ?>
+                    <input type="text" id="ticket" name="ticket">
+                    <?php endif; ?>
                 </div>
 
                 <div class="field field-span-2">

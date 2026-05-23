@@ -5,6 +5,7 @@ require __DIR__ . "/includes/monitoring_helpers.php";
 require __DIR__ . "/includes/monitoring_repository.php";
 
 $company = resolveCompanyConfig($_GET["company"] ?? null, $companyConfigs);
+ensureMonitoringTable($pdo, $company);
 $tableNameSql = quoteMysqlIdentifier($company["table_name"]);
 $filterOptions = [
     "branch" => $branchOptions,

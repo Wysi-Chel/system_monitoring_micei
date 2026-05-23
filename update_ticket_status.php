@@ -5,11 +5,13 @@ require __DIR__ . "/includes/monitoring_helpers.php";
 require __DIR__ . "/includes/monitoring_repository.php";
 
 $company = resolveCompanyConfig($_POST["company"] ?? $_GET["company"] ?? null, $companyConfigs);
+if (!companySupportsTicketMonitoring($company)) {
+    header("Location: index.php?company=" . urlencode($company["key"]));
+    exit;
+}
 ensureTicketMonitoringTable($pdo, $company);
-ensureResolvedTicketMonitoringTable($pdo, $company);
 
 $ticketTableNameSql = quoteMysqlIdentifier($company["ticket_table_name"]);
-$resolvedTicketTableNameSql = quoteMysqlIdentifier($company["resolved_ticket_table_name"]);
 $ticketId = is_numeric($_POST["ticket_id"] ?? null) ? (int) $_POST["ticket_id"] : 0;
 $newTicketStatus = trim((string) ($_POST["new_ticket_status"] ?? ""));
 
@@ -53,11 +55,6 @@ if ($ticketId > 0 && in_array($newTicketStatus, $allowedStatuses, true)) {
             : null;
 
         updateTicketMonitoringRecordStatus($pdo, $ticketTableNameSql, $ticketId, $newTicketStatus, $resolvedAt);
-        $updatedRecord = fetchTicketMonitoringRecordById($pdo, $ticketTableNameSql, $ticketId);
-
-        if ($updatedRecord !== null && isLockedTicketStatus($updatedRecord["ticket_status"] ?? "")) {
-            archiveResolvedTicketRecord($pdo, $resolvedTicketTableNameSql, $updatedRecord);
-        }
 
         $redirectParams["saved"] = 1;
         $redirectParams["updated"] = 1;

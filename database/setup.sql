@@ -1,7 +1,7 @@
 CREATE DATABASE IF NOT EXISTS system_monitoring_db;
 USE system_monitoring_db;
 
-CREATE TABLE IF NOT EXISTS `MICEI system monitoring` (
+CREATE TABLE IF NOT EXISTS `micei_system_monitoring` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     date_recorded DATE NOT NULL,
     transaction_date DATE NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS `MICEI system monitoring` (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS `NTR system monitoring` (
+CREATE TABLE IF NOT EXISTS `ntr_system_monitoring` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     date_recorded DATE NOT NULL,
     transaction_date DATE NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS `NTR system monitoring` (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS `MICEI ticket monitoring` (
+CREATE TABLE IF NOT EXISTS `micei_ticket_monitoring` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     branch VARCHAR(100),
     module VARCHAR(100),
@@ -62,49 +62,4 @@ CREATE TABLE IF NOT EXISTS `MICEI ticket monitoring` (
     ticket_status VARCHAR(100) NOT NULL,
     resolved_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS `NTR ticket monitoring` (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    branch VARCHAR(100),
-    module VARCHAR(100),
-    ticket_number VARCHAR(150) NOT NULL,
-    ticket_description TEXT,
-    date_created DATE NOT NULL,
-    created_by VARCHAR(150),
-    ticket_status VARCHAR(100) NOT NULL,
-    resolved_at DATETIME NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS `MICEI resolved ticket monitoring` (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    source_ticket_id INT NOT NULL,
-    branch VARCHAR(100),
-    module VARCHAR(100),
-    ticket_number VARCHAR(150) NOT NULL,
-    ticket_description TEXT,
-    date_created DATE NOT NULL,
-    created_by VARCHAR(150),
-    ticket_status VARCHAR(100) NOT NULL,
-    resolved_at DATETIME NOT NULL,
-    ticket_age_days INT NOT NULL DEFAULT 0,
-    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_source_ticket_id (source_ticket_id)
-);
-
-CREATE TABLE IF NOT EXISTS `NTR resolved ticket monitoring` (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    source_ticket_id INT NOT NULL,
-    branch VARCHAR(100),
-    module VARCHAR(100),
-    ticket_number VARCHAR(150) NOT NULL,
-    ticket_description TEXT,
-    date_created DATE NOT NULL,
-    created_by VARCHAR(150),
-    ticket_status VARCHAR(100) NOT NULL,
-    resolved_at DATETIME NOT NULL,
-    ticket_age_days INT NOT NULL DEFAULT 0,
-    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_source_ticket_id (source_ticket_id)
 );
