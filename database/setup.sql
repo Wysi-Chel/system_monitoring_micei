@@ -50,3 +50,57 @@ CREATE TABLE IF NOT EXISTS `NTR system monitoring` (
     offense VARCHAR(150),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS `MICEI ticket monitoring` (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    branch VARCHAR(100),
+    ticket_number VARCHAR(150) NOT NULL,
+    ticket_description TEXT,
+    date_created DATE NOT NULL,
+    created_by VARCHAR(150),
+    ticket_status VARCHAR(100) NOT NULL,
+    resolved_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS `NTR ticket monitoring` (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    branch VARCHAR(100),
+    ticket_number VARCHAR(150) NOT NULL,
+    ticket_description TEXT,
+    date_created DATE NOT NULL,
+    created_by VARCHAR(150),
+    ticket_status VARCHAR(100) NOT NULL,
+    resolved_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS `MICEI resolved ticket monitoring` (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source_ticket_id INT NOT NULL,
+    branch VARCHAR(100),
+    ticket_number VARCHAR(150) NOT NULL,
+    ticket_description TEXT,
+    date_created DATE NOT NULL,
+    created_by VARCHAR(150),
+    ticket_status VARCHAR(100) NOT NULL,
+    resolved_at DATETIME NOT NULL,
+    ticket_age_days INT NOT NULL DEFAULT 0,
+    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_source_ticket_id (source_ticket_id)
+);
+
+CREATE TABLE IF NOT EXISTS `NTR resolved ticket monitoring` (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source_ticket_id INT NOT NULL,
+    branch VARCHAR(100),
+    ticket_number VARCHAR(150) NOT NULL,
+    ticket_description TEXT,
+    date_created DATE NOT NULL,
+    created_by VARCHAR(150),
+    ticket_status VARCHAR(100) NOT NULL,
+    resolved_at DATETIME NOT NULL,
+    ticket_age_days INT NOT NULL DEFAULT 0,
+    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_source_ticket_id (source_ticket_id)
+);

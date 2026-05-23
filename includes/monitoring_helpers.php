@@ -58,6 +58,7 @@ function buildMonitoringListQueryParams(string $companyKey, array $filters, bool
         "department" => "department",
         "module" => "module",
         "status" => "status",
+        "ticket_status" => "status",
     ];
 
     foreach ($fieldMap as $filterKey => $queryKey) {
@@ -127,6 +128,66 @@ function formatDisplayTimestamp(?string $value): string
     return $timestamp === false ? $value : date("n/j/Y g:i A", $timestamp);
 }
 
+function getLockedTicketStatuses(): array
+{
+    return ["Resolved", "Closed"];
+}
+
+function isLockedTicketStatus(?string $status): bool
+{
+    return in_array(trim((string) $status), getLockedTicketStatuses(), true);
+}
+
+function calculateTicketAgeDays(?string $dateCreatedValue, ?string $endDateValue): int
+{
+    $dateCreatedValue = trim((string) $dateCreatedValue);
+    $endDateValue = trim((string) $endDateValue);
+
+    if ($dateCreatedValue === "" || $endDateValue === "") {
+        return 0;
+    }
+
+    try {
+        $timezone = new DateTimeZone("Asia/Manila");
+        $dateCreated = new DateTimeImmutable($dateCreatedValue, $timezone);
+        $endDate = new DateTimeImmutable($endDateValue, $timezone);
+    } catch (Throwable $error) {
+        return 0;
+    }
+
+    if ($endDate < $dateCreated) {
+        return 0;
+    }
+
+    return (int) $dateCreated->diff($endDate)->format("%a");
+}
+
+function formatTicketAgeValue(array $row): string
+{
+    $dateCreatedValue = trim((string) ($row["date_created"] ?? ""));
+    if ($dateCreatedValue === "") {
+        return "";
+    }
+
+    try {
+        $timezone = new DateTimeZone("Asia/Manila");
+        $dateCreated = new DateTimeImmutable($dateCreatedValue, $timezone);
+        $resolvedAtValue = trim((string) ($row["resolved_at"] ?? ""));
+        $endDate = $resolvedAtValue !== ""
+            ? new DateTimeImmutable($resolvedAtValue, $timezone)
+            : new DateTimeImmutable("now", $timezone);
+    } catch (Throwable $error) {
+        return "";
+    }
+
+    if ($endDate < $dateCreated) {
+        return "0 day(s)";
+    }
+
+    $days = calculateTicketAgeDays($dateCreatedValue, $endDate->format("Y-m-d H:i:s"));
+    return $days . " day(s)";
+}
+
 function formatSummaryValue(array $column, array $row): string
 {
     $value = $row[$column["key"]] ?? "";
@@ -144,6 +205,9 @@ function formatSummaryValue(array $column, array $row): string
             }
 
             return is_numeric((string) $value) ? number_format((float) $value, 2) : (string) $value;
+
+        case "ticket_age":
+            return formatTicketAgeValue($row);
 
         default:
             return (string) $value;
@@ -170,6 +234,27 @@ function buildActiveFilterBadges(array $filters, ?string $fixedBranch = null): a
 
     if ($filters["status"] !== "") {
         $badges[] = "Status: " . $filters["status"];
+    }
+
+    return $badges;
+}
+
+function buildTicketFilterBadges(array $filters, ?string $fixedBranch = null): array
+{
+    $badges = [];
+
+    if ($filters["search"] !== "") {
+        $badges[] = 'Ticket: "' . $filters["search"] . '"';
+    }
+
+    if ($fixedBranch !== null) {
+        $badges[] = "Branch: " . $fixedBranch;
+    } elseif (($filters["branch"] ?? "") !== "") {
+        $badges[] = "Branch: " . $filters["branch"];
+    }
+
+    if (($filters["ticket_status"] ?? "") !== "") {
+        $badges[] = "Status: " . $filters["ticket_status"];
     }
 
     return $badges;

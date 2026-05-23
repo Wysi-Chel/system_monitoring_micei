@@ -70,7 +70,15 @@
 
                 <div class="field">
                     <label for="ticket">Ticket</label>
-                    <input type="text" id="ticket" name="ticket">
+                    <div class="inline-input-row">
+                        <input type="text" id="ticket" name="ticket">
+                        <a
+                            href="<?= e($ticketMonitoringUrl) ?>"
+                            class="button-link secondary inline-action-button"
+                            id="ticket-monitoring-link"
+                            data-base-href="<?= e($ticketMonitoringUrl) ?>"
+                        >Ticket Monitoring</a>
+                    </div>
                 </div>
 
                 <div class="field field-span-2">

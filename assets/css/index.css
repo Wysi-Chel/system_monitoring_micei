@@ -54,6 +54,70 @@ html.dark-theme body.company-hyundai {
     --header-bg: linear-gradient(135deg, #052a4b 0%, #073966 48%, #161a1f 100%);
 }
 
+body.page-ticket-monitoring {
+    --brand: #c97711;
+    --brand-dark: #9a5b08;
+    --brand-soft: #f6e0bf;
+    --surface-soft: #fcf6ed;
+    --table-head: #f3dfbf;
+    --table-row: #fdf9f2;
+    --header-bg: linear-gradient(135deg, #7c4707 0%, #c97711 48%, #2c3139 100%);
+    --header-muted: rgba(255, 241, 220, 0.82);
+    --focus: rgba(201, 119, 17, 0.2);
+}
+
+body.page-system-monitoring.company-mitsubishi main {
+    --brand: #bf1f2f;
+    --brand-dark: #991927;
+    --brand-soft: #f8dde1;
+    --surface-soft: #fbf1f3;
+    --table-head: #f0d7dc;
+    --table-row: #fcf7f8;
+    --focus: rgba(191, 31, 47, 0.18);
+}
+
+body.page-system-monitoring.company-hyundai main {
+    --brand: #0b61ba;
+    --brand-dark: #084d94;
+    --brand-soft: #dceaf9;
+    --surface-soft: #eef5fd;
+    --table-head: #dbe8f7;
+    --table-row: #f7fbff;
+    --focus: rgba(11, 97, 186, 0.18);
+}
+
+html.dark-theme body.page-ticket-monitoring {
+    --brand: #ebb265;
+    --brand-dark: #ffd59a;
+    --brand-soft: #513613;
+    --surface-soft: #2d2318;
+    --table-head: #42311c;
+    --table-row: #271d13;
+    --header-bg: linear-gradient(135deg, #5f3809 0%, #9a5f16 48%, #161a1f 100%);
+    --header-muted: rgba(255, 231, 191, 0.8);
+    --focus: rgba(235, 178, 101, 0.22);
+}
+
+html.dark-theme body.page-system-monitoring.company-mitsubishi main {
+    --brand: #dd6c79;
+    --brand-dark: #f3b7bf;
+    --brand-soft: #4c2026;
+    --surface-soft: #291b1e;
+    --table-head: #3d262b;
+    --table-row: #241719;
+    --focus: rgba(221, 108, 121, 0.2);
+}
+
+html.dark-theme body.page-system-monitoring.company-hyundai main {
+    --brand: #64aaf0;
+    --brand-dark: #b8d9fb;
+    --brand-soft: #183d62;
+    --surface-soft: #182431;
+    --table-head: #24394d;
+    --table-row: #141d27;
+    --focus: rgba(100, 170, 240, 0.2);
+}
+
 * {
     box-sizing: border-box;
 }
@@ -186,6 +250,37 @@ main {
     background: var(--surface);
 }
 
+body.page-ticket-monitoring .card {
+    border-top: 3px solid var(--brand);
+}
+
+body.page-system-monitoring .card {
+    border-top: 3px solid var(--brand);
+}
+
+body.page-ticket-monitoring .header-kicker {
+    border-color: rgba(255, 230, 176, 0.55);
+    background: rgba(255, 243, 214, 0.08);
+}
+
+body.page-ticket-monitoring h2,
+body.page-ticket-monitoring .modal-title {
+    color: var(--brand-dark);
+}
+
+body.page-system-monitoring h2,
+body.page-system-monitoring .modal-title {
+    color: var(--brand-dark);
+}
+
+body.page-ticket-monitoring th {
+    color: var(--brand-dark);
+}
+
+body.page-system-monitoring th {
+    color: var(--brand-dark);
+}
+
 h2 {
     margin: 0 0 14px;
     color: var(--text);
@@ -282,6 +377,29 @@ textarea:focus {
 
 .field-span-2 {
     grid-column: span 2;
+}
+
+.inline-input-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.inline-input-row input {
+    flex: 1 1 auto;
+}
+
+.secondary.inline-action-button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    border-color: #9a1724;
+    background: #bf1f2f;
+    color: #ffffff;
+}
+
+.secondary.inline-action-button:hover {
+    background: #991927;
+    color: #ffffff;
 }
 
 .selector-field,
@@ -443,6 +561,39 @@ button,
     font-size: 13px;
 }
 
+.table-action-cell {
+    white-space: normal;
+    min-width: 210px;
+}
+
+.ticket-status-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.ticket-status-select {
+    min-width: 120px;
+    max-width: 160px;
+}
+
+.compact-button {
+    padding: 7px 10px;
+    font-size: 12px;
+}
+
+.row-lock-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: bold;
+}
+
 .active-filters {
     margin: 0 0 14px;
 }
@@ -524,11 +675,39 @@ button,
     background: var(--surface);
 }
 
+.compact-summary-table-wrapper {
+    border-color: var(--border-strong);
+}
+
 table {
     width: 100%;
     min-width: 2300px;
     border-collapse: collapse;
     background: var(--surface);
+}
+
+.compact-summary-table {
+    min-width: 1180px;
+}
+
+.compact-summary-table th,
+.compact-summary-table td {
+    padding: 6px 7px;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.compact-summary-table th {
+    white-space: nowrap;
+}
+
+.compact-summary-table td:nth-child(4) {
+    max-width: 280px;
+    white-space: normal;
+}
+
+.compact-summary-table .table-action-cell {
+    min-width: 180px;
 }
 
 th,
@@ -548,6 +727,36 @@ th {
 
 tr:nth-child(even) {
     background: var(--table-row);
+}
+
+.ticket-row-resolved td {
+    background: #dff3e2;
+    color: #1f5e2d;
+}
+
+.ticket-row-resolved:nth-child(even) td {
+    background: #d6eedb;
+}
+
+.ticket-row-resolved .row-lock-label {
+    border-color: #8fc59a;
+    background: #cfe9d5;
+    color: #1f5e2d;
+}
+
+html.dark-theme .ticket-row-resolved td {
+    background: #1f3d28;
+    color: #c9f0d2;
+}
+
+html.dark-theme .ticket-row-resolved:nth-child(even) td {
+    background: #23452d;
+}
+
+html.dark-theme .ticket-row-resolved .row-lock-label {
+    border-color: #3e7450;
+    background: #2a5235;
+    color: #c9f0d2;
 }
 
 .empty-table {
@@ -667,6 +876,10 @@ tr:nth-child(even) {
         width: 100%;
     }
 
+    .inline-input-row {
+        flex-direction: column;
+    }
+
     label,
     .note,
     .modal-message,
@@ -690,6 +903,14 @@ tr:nth-child(even) {
         font-size: 12px;
     }
 
+    .compact-summary-table {
+        min-width: 980px;
+    }
+
+    .compact-summary-table .table-action-cell {
+        min-width: 150px;
+    }
+
     .summary-header,
     .summary-toolbar,
     .pagination {
@@ -699,6 +920,14 @@ tr:nth-child(even) {
 
     .page-numbers {
         justify-content: flex-start;
+    }
+
+    .ticket-status-form {
+        align-items: stretch;
+    }
+
+    .ticket-status-select {
+        max-width: none;
     }
 }
 

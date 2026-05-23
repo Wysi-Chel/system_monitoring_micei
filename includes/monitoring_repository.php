@@ -68,6 +68,27 @@ function buildMonitoringFilters(array $input, array $company, array $filterOptio
     return $filters;
 }
 
+function buildTicketMonitoringFilters(array $input, array $company, array $filterOptions): array
+{
+    $filters = [
+        "search" => normalizeSearchFilter($input["q"] ?? ""),
+        "branch" => "",
+        "ticket_status" => normalizeAllowedFilter($input["status"] ?? "", $filterOptions["status"] ?? []),
+        "page" => normalizePositiveInt($input["page"] ?? 1, 1),
+        "per_page" => normalizePositiveInt($input["per_page"] ?? 25, 25),
+    ];
+
+    if (($company["fixed_branch"] ?? null) === null) {
+        $filters["branch"] = normalizeAllowedFilter($input["branch"] ?? "", $filterOptions["branch"] ?? []);
+    }
+
+    if (!in_array($filters["per_page"], $filterOptions["per_page"] ?? [25], true)) {
+        $filters["per_page"] = 25;
+    }
+
+    return $filters;
+}
+
 function buildMonitoringWhereClause(array $filters, array &$bindings): string
 {
     $conditions = [];
@@ -142,6 +163,45 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
     return $conditions === [] ? "" : " WHERE " . implode(" AND ", $conditions);
 }
 
+function buildTicketMonitoringWhereClause(array $filters, array &$bindings): string
+{
+    $conditions = [
+        "COALESCE(TRIM(ticket_number), '') <> ''",
+    ];
+    $bindings = [];
+
+    if (($filters["search"] ?? "") !== "") {
+        $searchValue = "%" . escapeLikeTerm($filters["search"]) . "%";
+        $searchColumns = [
+            "ticket_number",
+            "ticket_description",
+            "created_by",
+            "ticket_status",
+        ];
+
+        $searchParts = [];
+        foreach ($searchColumns as $index => $columnExpression) {
+            $paramKey = "ticket_search_" . $index;
+            $searchParts[] = $columnExpression . " LIKE :" . $paramKey . " ESCAPE '\\\\'";
+            $bindings[$paramKey] = $searchValue;
+        }
+
+        $conditions[] = "(" . implode(" OR ", $searchParts) . ")";
+    }
+
+    if (($filters["branch"] ?? "") !== "") {
+        $conditions[] = "branch = :branch";
+        $bindings["branch"] = $filters["branch"];
+    }
+
+    if (($filters["ticket_status"] ?? "") !== "") {
+        $conditions[] = "ticket_status = :ticket_status";
+        $bindings["ticket_status"] = $filters["ticket_status"];
+    }
+
+    return " WHERE " . implode(" AND ", $conditions);
+}
+
 function countMonitoringRecords(PDO $pdo, string $tableNameSql, array $filters): int
 {
     $bindings = [];
@@ -186,4 +246,131 @@ function fetchMonitoringRecords(
 
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function countTicketMonitoringRecords(PDO $pdo, string $tableNameSql, array $filters): int
+{
+    $bindings = [];
+    $whereClause = buildTicketMonitoringWhereClause($filters, $bindings);
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM {$tableNameSql}{$whereClause}");
+
+    foreach ($bindings as $key => $value) {
+        $stmt->bindValue(":" . $key, $value, PDO::PARAM_STR);
+    }
+
+    $stmt->execute();
+    return (int) $stmt->fetchColumn();
+}
+
+function fetchTicketMonitoringRecords(
+    PDO $pdo,
+    string $tableNameSql,
+    array $filters,
+    ?int $limit = null,
+    int $offset = 0,
+    string $orderDirection = "DESC"
+): array {
+    $bindings = [];
+    $whereClause = buildTicketMonitoringWhereClause($filters, $bindings);
+    $direction = strtoupper($orderDirection) === "ASC" ? "ASC" : "DESC";
+
+    $sql = "SELECT * FROM {$tableNameSql}{$whereClause} ORDER BY id {$direction}";
+    if ($limit !== null) {
+        $sql .= " LIMIT :limit OFFSET :offset";
+    }
+
+    $stmt = $pdo->prepare($sql);
+
+    foreach ($bindings as $key => $value) {
+        $stmt->bindValue(":" . $key, $value, PDO::PARAM_STR);
+    }
+
+    if ($limit !== null) {
+        $stmt->bindValue(":limit", $limit, PDO::PARAM_INT);
+        $stmt->bindValue(":offset", max(0, $offset), PDO::PARAM_INT);
+    }
+
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function fetchTicketMonitoringRecordById(PDO $pdo, string $tableNameSql, int $id): ?array
+{
+    $stmt = $pdo->prepare("SELECT * FROM {$tableNameSql} WHERE id = :id LIMIT 1");
+    $stmt->bindValue(":id", $id, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $record = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $record === false ? null : $record;
+}
+
+function updateTicketMonitoringRecordStatus(PDO $pdo, string $tableNameSql, int $id, string $ticketStatus, ?string $resolvedAt): void
+{
+    $stmt = $pdo->prepare(
+        "UPDATE {$tableNameSql}
+         SET ticket_status = :ticket_status,
+             resolved_at = :resolved_at
+         WHERE id = :id"
+    );
+
+    $stmt->bindValue(":ticket_status", $ticketStatus, PDO::PARAM_STR);
+    if ($resolvedAt === null) {
+        $stmt->bindValue(":resolved_at", null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(":resolved_at", $resolvedAt, PDO::PARAM_STR);
+    }
+    $stmt->bindValue(":id", $id, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+function archiveResolvedTicketRecord(PDO $pdo, string $resolvedTableNameSql, array $ticketRecord): void
+{
+    $ticketAgeDays = calculateTicketAgeDays(
+        (string) ($ticketRecord["date_created"] ?? ""),
+        (string) ($ticketRecord["resolved_at"] ?? "")
+    );
+
+    $sql = "INSERT INTO {$resolvedTableNameSql} (
+        source_ticket_id,
+        branch,
+        ticket_number,
+        ticket_description,
+        date_created,
+        created_by,
+        ticket_status,
+        resolved_at,
+        ticket_age_days
+    ) VALUES (
+        :source_ticket_id,
+        :branch,
+        :ticket_number,
+        :ticket_description,
+        :date_created,
+        :created_by,
+        :ticket_status,
+        :resolved_at,
+        :ticket_age_days
+    )
+    ON DUPLICATE KEY UPDATE
+        branch = VALUES(branch),
+        ticket_number = VALUES(ticket_number),
+        ticket_description = VALUES(ticket_description),
+        date_created = VALUES(date_created),
+        created_by = VALUES(created_by),
+        ticket_status = VALUES(ticket_status),
+        resolved_at = VALUES(resolved_at),
+        ticket_age_days = VALUES(ticket_age_days)";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ":source_ticket_id" => (int) ($ticketRecord["id"] ?? 0),
+        ":branch" => $ticketRecord["branch"] ?? "",
+        ":ticket_number" => $ticketRecord["ticket_number"] ?? "",
+        ":ticket_description" => $ticketRecord["ticket_description"] ?? "",
+        ":date_created" => $ticketRecord["date_created"] ?? null,
+        ":created_by" => $ticketRecord["created_by"] ?? "",
+        ":ticket_status" => $ticketRecord["ticket_status"] ?? "",
+        ":resolved_at" => $ticketRecord["resolved_at"] ?? null,
+        ":ticket_age_days" => $ticketAgeDays,
+    ]);
 }

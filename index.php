@@ -35,6 +35,9 @@ $hyundaiUrl = buildUrl("index.php", $listQueryParams, [
     "saved" => null,
     "page" => 1,
 ]);
+$ticketMonitoringUrl = buildUrl("ticket_monitoring.php", [
+    "company" => $company["key"],
+]);
 $clearFiltersUrl = buildUrl("index.php", ["company" => $company["key"]]);
 $exportUrl = buildUrl("export_excel.php", buildMonitoringListQueryParams($company["key"], $filters, false));
 $activeFilterBadges = buildActiveFilterBadges($filters);
@@ -51,7 +54,7 @@ $savedMessage = "Record successfully saved to the " . $company["table_name"] . "
     <script src="assets/js/theme-init.js"></script>
     <link rel="stylesheet" href="assets/css/index.css">
 </head>
-<body class="company-<?= e($company["key"]) ?>">
+<body class="company-<?= e($company["key"]) ?> page-system-monitoring">
 <?php require __DIR__ . "/includes/partials/page_header.php"; ?>
 
 <main>

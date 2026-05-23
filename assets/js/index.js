@@ -2,20 +2,81 @@
     var root = document.documentElement;
     var themeToggle = document.getElementById("theme-toggle");
     var recordForm = document.getElementById("record-form");
+    var ticketRecordForm = document.getElementById("ticket-record-form");
     var modal = document.getElementById("saved-modal");
     var okButton = document.getElementById("saved-modal-ok");
 
-    if (recordForm) {
-        var uppercaseFields = recordForm.querySelectorAll('input[type="text"], textarea');
-
-        for (var index = 0; index < uppercaseFields.length; index += 1) {
-            uppercaseFields[index].addEventListener("input", function () {
+    var applyUppercaseBehavior = function (fields) {
+        for (var index = 0; index < fields.length; index += 1) {
+            fields[index].addEventListener("input", function () {
                 this.value = this.value.toUpperCase();
             });
 
-            if (uppercaseFields[index].value) {
-                uppercaseFields[index].value = uppercaseFields[index].value.toUpperCase();
+            if (fields[index].value) {
+                fields[index].value = fields[index].value.toUpperCase();
             }
+        }
+    };
+
+    if (recordForm) {
+        var recordUppercaseFields = recordForm.querySelectorAll('input[type="text"], textarea');
+        var ticketInput = document.getElementById("ticket");
+        var ticketMonitoringLink = document.getElementById("ticket-monitoring-link");
+
+        applyUppercaseBehavior(recordUppercaseFields);
+
+        if (ticketInput && ticketMonitoringLink && ticketMonitoringLink.dataset.baseHref) {
+            ticketMonitoringLink.addEventListener("click", function () {
+                var targetUrl = new URL(ticketMonitoringLink.dataset.baseHref, window.location.href);
+                var ticketValue = ticketInput.value.trim();
+
+                if (ticketValue !== "") {
+                    targetUrl.searchParams.set("ticket_number", ticketValue);
+                    targetUrl.searchParams.set("q", ticketValue);
+                } else {
+                    targetUrl.searchParams.delete("ticket_number");
+                    targetUrl.searchParams.delete("q");
+                }
+
+                ticketMonitoringLink.href = targetUrl.toString();
+            });
+        }
+    }
+
+    if (ticketRecordForm) {
+        var ticketUppercaseFields = ticketRecordForm.querySelectorAll('#ticket-number, #ticket-created-by');
+        var ticketDateCreated = document.getElementById("ticket-date-created");
+        var ticketAgePreview = document.getElementById("ticket-age-preview");
+
+        applyUppercaseBehavior(ticketUppercaseFields);
+
+        if (ticketDateCreated && ticketAgePreview) {
+            var updateTicketAgePreview = function () {
+                if (!ticketDateCreated.value) {
+                    ticketAgePreview.value = "";
+                    return;
+                }
+
+                var createdDate = new Date(ticketDateCreated.value + "T00:00:00");
+                var today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                if (isNaN(createdDate.getTime()) || createdDate > today) {
+                    ticketAgePreview.value = "0 day(s)";
+                    return;
+                }
+
+                var diffMs = today.getTime() - createdDate.getTime();
+                var days = Math.floor(diffMs / 86400000);
+                ticketAgePreview.value = days + " day(s)";
+            };
+
+            ticketDateCreated.addEventListener("input", updateTicketAgePreview);
+            ticketDateCreated.addEventListener("change", updateTicketAgePreview);
+            ticketRecordForm.addEventListener("reset", function () {
+                window.setTimeout(updateTicketAgePreview, 0);
+            });
+            updateTicketAgePreview();
         }
     }
 
