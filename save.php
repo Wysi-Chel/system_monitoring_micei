@@ -172,7 +172,6 @@ if ($amount === "") {
 }
 
 $optionFields = [
-    "branch",
     "department",
     "module",
     "classification",
@@ -196,6 +195,8 @@ $normalizedText = [];
 foreach ($optionFields as $field) {
     $normalizedText[$field] = sentenceCaseInput($_POST[$field] ?? "");
 }
+
+$normalizedText["branch"] = sentenceCaseInput($company["fixed_branch"] ?? ($_POST["branch"] ?? ""));
 
 foreach ($uppercaseFields as $field) {
     $normalizedText[$field] = uppercaseInput($_POST[$field] ?? "");

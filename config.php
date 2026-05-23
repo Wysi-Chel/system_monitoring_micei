@@ -30,6 +30,7 @@ $companyConfigs = [
         "logo_type" => "image/png",
         "logo_alt" => "Hyundai Company",
         "export_slug" => "ntr",
+        "fixed_branch" => "GSC",
     ],
 ];
 

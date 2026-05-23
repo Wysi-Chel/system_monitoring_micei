@@ -1,61 +1,43 @@
 <?php
 require "config.php";
+require __DIR__ . "/includes/monitoring_options.php";
+require __DIR__ . "/includes/monitoring_helpers.php";
+require __DIR__ . "/includes/monitoring_repository.php";
 
 $company = resolveCompanyConfig($_GET["company"] ?? null, $companyConfigs);
 $tableNameSql = quoteMysqlIdentifier($company["table_name"]);
-
-$stmt = $pdo->query("SELECT * FROM {$tableNameSql} ORDER BY id ASC");
-$records = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$headers = [
-    "Date",
-    "Transaction Date",
-    "Branch",
-    "Department",
-    "Module",
-    "User",
-    "Invoice Reference",
-    "Payment Reference",
-    "Client Name",
-    "Amount",
-    "Reason",
-    "Approved By",
-    "Processed Type",
-    "Processed By",
-    "Remarks",
-    "Classification",
-    "System Admin",
-    "Ticket",
-    "Status",
-    "Offense",
-    "Encoded At",
+$filterOptions = [
+    "branch" => $branchOptions,
+    "department" => $departmentOptions,
+    "module" => $moduleOptions,
+    "status" => $statusOptions,
+    "per_page" => $rowsPerPageOptions,
 ];
+$filters = buildMonitoringFilters($_GET, $company, $filterOptions);
+$records = fetchMonitoringRecords($pdo, $tableNameSql, $filters, null, 0, "ASC");
+$headers = getSummaryHeaders($summaryColumns);
 
 $rows = [];
 foreach ($records as $row) {
-    $rows[] = [
-        formatDateExcel($row["date_recorded"] ?? ""),
-        formatDateExcel($row["transaction_date"] ?? ""),
-        $row["branch"] ?? "",
-        $row["department"] ?? "",
-        $row["module"] ?? "",
-        $row["user_name"] ?? "",
-        $row["invoice_reference"] ?? "",
-        $row["payment_reference"] ?? "",
-        $row["client_name"] ?? "",
-        normalizeAmount($row["amount"] ?? ""),
-        $row["reason"] ?? "",
-        $row["approved_by"] ?? "",
-        $row["processed_type"] ?? "",
-        $row["processed_by"] ?? "",
-        $row["remarks"] ?? "",
-        $row["classification"] ?? "",
-        $row["system_admin"] ?? "",
-        $row["ticket"] ?? "",
-        $row["status"] ?? "",
-        $row["offense"] ?? "",
-        $row["created_at"] ?? "",
-    ];
+    $rowValues = [];
+
+    foreach ($summaryColumns as $column) {
+        $value = $row[$column["key"]] ?? "";
+
+        if (($column["format"] ?? "text") === "date") {
+            $rowValues[] = formatDateExcel($value);
+            continue;
+        }
+
+        if (($column["format"] ?? "text") === "amount") {
+            $rowValues[] = normalizeAmount($value);
+            continue;
+        }
+
+        $rowValues[] = $value;
+    }
+
+    $rows[] = $rowValues;
 }
 
 $filename = $company["export_slug"] . "_system_monitoring_summary_" . date("Ymd_His") . ".xlsx";
