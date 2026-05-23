@@ -1,7 +1,10 @@
 <?php
 require "config.php";
 
-$stmt = $pdo->query("SELECT * FROM monitoring_records ORDER BY id ASC");
+$company = resolveCompanyConfig($_GET["company"] ?? null, $companyConfigs);
+$tableNameSql = quoteMysqlIdentifier($company["table_name"]);
+
+$stmt = $pdo->query("SELECT * FROM {$tableNameSql} ORDER BY id ASC");
 $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $headers = [
@@ -55,14 +58,15 @@ foreach ($records as $row) {
     ];
 }
 
-$filename = "system_monitoring_summary_" . date("Ymd_His") . ".xlsx";
+$filename = $company["export_slug"] . "_system_monitoring_summary_" . date("Ymd_His") . ".xlsx";
 
 try {
-    $tempFile = buildXlsxFile("Monitoring Summary", $headers, $rows);
+    $tempFile = buildXlsxFile($company["system_name"] . " Summary", $headers, $rows);
     downloadXlsxFile($tempFile, $filename);
 } catch (Throwable $e) {
     error_log(sprintf(
-        "[system_monitoring] Excel export failed: %s in %s on line %d",
+        "[system_monitoring] Excel export failed for %s: %s in %s on line %d",
+        $company["key"],
         $e->getMessage(),
         $e->getFile(),
         $e->getLine()

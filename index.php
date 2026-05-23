@@ -8,17 +8,18 @@ $classificationOptions = ["User Error", "System Error", "Data Correction", "Othe
 $processedTypeOptions = ["Cancellation", "Unposting", "Void", "Others"];
 $statusOptions = ["Pending", "Done", "Cancelled", "Unposted", "Voided"];
 $today = (new DateTimeImmutable("now", new DateTimeZone("Asia/Manila")))->format("Y-m-d");
+$company = resolveCompanyConfig($_GET["company"] ?? null, $companyConfigs);
 
 function renderOptionButtons(string $name, array $options, bool $allowMultiple = false): void
 {
-    $groupRole = $allowMultiple ? 'group' : 'radiogroup';
-    $inputType = $allowMultiple ? 'checkbox' : 'radio';
-    $inputName = $allowMultiple ? $name . '[]' : $name;
+    $groupRole = $allowMultiple ? "group" : "radiogroup";
+    $inputType = $allowMultiple ? "checkbox" : "radio";
+    $inputName = $allowMultiple ? $name . "[]" : $name;
 
     echo '<div class="option-group" role="' . $groupRole . '" aria-label="' . htmlspecialchars($name, ENT_QUOTES, "UTF-8") . '">';
 
     foreach ($options as $option) {
-        $id = $name . '_' . preg_replace('/[^a-z0-9]+/i', '_', strtolower($option));
+        $id = $name . "_" . preg_replace('/[^a-z0-9]+/i', "_", strtolower($option));
         $safeId = htmlspecialchars($id, ENT_QUOTES, "UTF-8");
         $safeName = htmlspecialchars($inputName, ENT_QUOTES, "UTF-8");
         $safeOption = htmlspecialchars($option, ENT_QUOTES, "UTF-8");
@@ -29,22 +30,133 @@ function renderOptionButtons(string $name, array $options, bool $allowMultiple =
         echo '</label>';
     }
 
-    echo '</div>';
+    echo "</div>";
 }
 
-$stmt = $pdo->query("SELECT * FROM monitoring_records ORDER BY id DESC");
+function buildIndexUrl(array $changes = []): string
+{
+    $params = $_GET;
+
+    foreach ($changes as $key => $value) {
+        if ($value === null) {
+            unset($params[$key]);
+            continue;
+        }
+
+        $params[$key] = $value;
+    }
+
+    $query = http_build_query($params);
+    return "index.php" . ($query !== "" ? "?" . $query : "");
+}
+
+$tableNameSql = quoteMysqlIdentifier($company["table_name"]);
+$stmt = $pdo->query("SELECT * FROM {$tableNameSql} ORDER BY id DESC");
 $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$mitsubishiUrl = buildIndexUrl([
+    "company" => "mitsubishi",
+    "saved" => null,
+]);
+$hyundaiUrl = buildIndexUrl([
+    "company" => "hyundai",
+    "saved" => null,
+]);
+$exportUrl = "export_excel.php?" . http_build_query([
+    "company" => $company["key"],
+]);
+$savedMessage = "Record successfully saved to the " . $company["table_name"] . " table.";
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>System Monitoring Form</title>
+    <title><?= htmlspecialchars($company["system_name"], ENT_QUOTES, "UTF-8") ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="assets/images/mitsubishi-logo.png">
-    <link rel="shortcut icon" type="image/png" href="assets/images/mitsubishi-logo.png">
+    <link rel="icon" type="<?= htmlspecialchars($company["logo_type"], ENT_QUOTES, "UTF-8") ?>" href="<?= htmlspecialchars($company["logo_path"], ENT_QUOTES, "UTF-8") ?>">
+    <link rel="shortcut icon" type="<?= htmlspecialchars($company["logo_type"], ENT_QUOTES, "UTF-8") ?>" href="<?= htmlspecialchars($company["logo_path"], ENT_QUOTES, "UTF-8") ?>">
+    <script>
+        (function () {
+            try {
+                if (window.localStorage && window.localStorage.getItem('systemMonitoringTheme') === 'dark') {
+                    document.documentElement.classList.add('dark-theme');
+                }
+            } catch (error) {
+            }
+        }());
+    </script>
 
     <style>
+        :root {
+            --bg: #f4f6f8;
+            --text: #222222;
+            --text-strong: #0f172a;
+            --text-soft: #334155;
+            --text-muted: #64748b;
+            --header-text: #ffffff;
+            --header-muted: #d7deea;
+            --surface: #ffffff;
+            --surface-alt: #f8fafc;
+            --section-bg: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --input-bg: #ffffff;
+            --table-head: #e2e8f0;
+            --table-alt: #f8fafc;
+            --overlay: rgba(15, 23, 42, 0.64);
+            --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.08);
+            --shadow-option: 0 12px 28px rgba(148, 163, 184, 0.18);
+            --shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.3);
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+            --brand: #d71920;
+            --brand-soft: rgba(215, 25, 32, 0.1);
+            --brand-hover: rgba(215, 25, 32, 0.08);
+            --brand-shadow: rgba(215, 25, 32, 0.28);
+            --brand-focus: rgba(215, 25, 32, 0.18);
+            --header-bg: linear-gradient(135deg, #450a0a 0%, #7f1d1d 42%, #0f172a 100%);
+        }
+
+        body.company-hyundai {
+            --brand: #0b63ce;
+            --brand-soft: rgba(11, 99, 206, 0.1);
+            --brand-hover: rgba(11, 99, 206, 0.08);
+            --brand-shadow: rgba(11, 99, 206, 0.28);
+            --brand-focus: rgba(11, 99, 206, 0.18);
+            --header-bg: linear-gradient(135deg, #08254b 0%, #0b63ce 42%, #0f172a 100%);
+        }
+
+        html.dark-theme {
+            --bg: #020617;
+            --text: #e2e8f0;
+            --text-strong: #f8fafc;
+            --text-soft: #cbd5e1;
+            --text-muted: #94a3b8;
+            --header-muted: #c8d4e8;
+            --surface: #0f172a;
+            --surface-alt: #111c2f;
+            --section-bg: linear-gradient(180deg, #10192d 0%, #0b1220 100%);
+            --border: #1e293b;
+            --border-strong: #334155;
+            --input-bg: #0b1220;
+            --table-head: #132033;
+            --table-alt: #0b1322;
+            --overlay: rgba(2, 6, 23, 0.8);
+            --shadow-card: 0 18px 42px rgba(0, 0, 0, 0.36);
+            --shadow-option: 0 16px 34px rgba(0, 0, 0, 0.28);
+            --shadow-modal: 0 28px 72px rgba(0, 0, 0, 0.5);
+            --success-bg: #083826;
+            --success-text: #86efac;
+        }
+
+        html.dark-theme body.company-mitsubishi {
+            --header-bg: linear-gradient(135deg, #25070a 0%, #6c1017 42%, #020617 100%);
+        }
+
+        html.dark-theme body.company-hyundai {
+            --header-bg: linear-gradient(135deg, #031a39 0%, #0a4b99 42%, #020617 100%);
+        }
+
         * {
             box-sizing: border-box;
             font-family: Arial, sans-serif;
@@ -52,45 +164,111 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         body {
             margin: 0;
-            background: #f4f6f8;
-            color: #222;
+            background: var(--bg);
+            color: var(--text);
+            transition: background 0.2s ease, color 0.2s ease;
         }
 
         header {
-            background: #0f172a;
-            color: white;
+            background: var(--header-bg);
+            color: var(--header-text);
             padding: 18px 24px;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.14);
         }
 
         .header-bar {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-            gap: 18px;
+            gap: 20px;
         }
 
         .header-copy {
+            flex: 1 1 auto;
             min-width: 0;
         }
 
+        .header-kicker {
+            display: inline-flex;
+            align-items: center;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
         header h1 {
-            margin: 0;
+            margin: 12px 0 0;
             font-size: 50px;
         }
 
         header p {
-            margin: 6px 0 0;
-            color: #cbd5e1;
+            margin: 8px 0 0;
+            color: var(--header-muted);
             font-size: 14px;
+            max-width: 700px;
+        }
+
+        .header-meta {
+            display: flex;
+            flex: 0 0 auto;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 12px;
+        }
+
+        .header-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .company-switch {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .switch-link,
+        .theme-toggle {
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 999px;
+            padding: 10px 14px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: bold;
+            line-height: 1;
+            text-decoration: none;
+            background: rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .switch-link:hover,
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        .switch-link.active {
+            background: #ffffff;
+            border-color: #ffffff;
+            color: var(--brand);
         }
 
         .header-logo {
-            flex: 0 0 auto;
-            width: 100px;
+            width: 110px;
             max-width: 32vw;
             height: auto;
             display: block;
-            background: white;
+            background: #ffffff;
             border-radius: 16px;
             padding: 10px 12px;
             box-shadow: 0 10px 30px rgba(15, 23, 42, 0.22);
@@ -103,16 +281,17 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
         .card {
-            background: white;
+            background: var(--surface);
             border-radius: 12px;
             padding: 22px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+            box-shadow: var(--shadow-card);
             margin-bottom: 20px;
+            transition: background 0.2s ease, color 0.2s ease;
         }
 
         h2 {
             margin-top: 0;
-            color: #0f172a;
+            color: var(--text-strong);
             font-size: 18px;
         }
 
@@ -126,15 +305,24 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             font-size: 13px;
             font-weight: bold;
             margin-bottom: 5px;
-            color: #334155;
+            color: var(--text-soft);
         }
 
-        input, select, textarea {
+        input,
+        select,
+        textarea {
             width: 100%;
             padding: 9px 10px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-strong);
             border-radius: 8px;
             font-size: 14px;
+            color: var(--text);
+            background: var(--input-bg);
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: var(--text-muted);
         }
 
         input[type="text"],
@@ -142,17 +330,19 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             text-transform: uppercase;
         }
 
-        input:focus, textarea:focus {
+        input:focus,
+        select:focus,
+        textarea:focus {
             outline: none;
-            border-color: #8b5cf6;
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.14);
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px var(--brand-focus);
         }
 
         .form-section {
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border);
             border-radius: 16px;
             padding: 18px;
-            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            background: var(--section-bg);
         }
 
         .form-section.compact-section {
@@ -166,13 +356,13 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         .section-header h3 {
             margin: 0;
-            color: #0f172a;
+            color: var(--text-strong);
             font-size: 15px;
         }
 
         .section-header p {
             margin: 5px 0 0;
-            color: #64748b;
+            color: var(--text-muted);
             font-size: 13px;
         }
 
@@ -230,7 +420,7 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
         .selector-field-medium .option-group {
-        min-height: 105px;
+            min-height: 105px;
         }
 
         .selector-field-tall .option-group {
@@ -243,9 +433,9 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             gap: 0;
             padding: 8px 10px;
             border-radius: 18px;
-            border: 1px solid #eef2ff;
-            background: #ffffff;
-            box-shadow: 0 12px 28px rgba(148, 163, 184, 0.18);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            box-shadow: var(--shadow-option);
         }
 
         .option-button {
@@ -273,7 +463,7 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             border: none;
             border-radius: 14px;
             background: transparent;
-            color: #1f2937;
+            color: var(--text-strong);
             position: relative;
             transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
         }
@@ -291,13 +481,13 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
         .option-button:hover span {
-            background: rgba(124, 58, 237, 0.05);
-            color: #6d28d9;
+            background: var(--brand-hover);
+            color: var(--brand);
         }
 
         .option-button input:checked + span {
-            background: rgba(124, 58, 237, 0.08);
-            color: #7c3aed;
+            background: var(--brand-soft);
+            color: var(--brand);
             font-weight: bold;
             transform: translateY(-1px);
         }
@@ -305,14 +495,14 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .option-button input:checked + span::before {
             content: "\2713";
             margin-right: 6px;
-            color: #16a34a;
+            color: var(--success-text);
             font-size: 13px;
             font-weight: bold;
         }
 
         .option-button input:checked + span::after {
-            background: #7c3aed;
-            box-shadow: 0 4px 10px rgba(124, 58, 237, 0.28);
+            background: var(--brand);
+            box-shadow: 0 4px 10px var(--brand-shadow);
         }
 
         textarea {
@@ -327,8 +517,8 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             margin-top: 4px;
         }
 
-        button, .button-link {
-            border: none;
+        button,
+        .button-link {
             border-radius: 8px;
             padding: 10px 16px;
             font-weight: bold;
@@ -336,16 +526,20 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             font-size: 14px;
             text-decoration: none;
             display: inline-block;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
         }
 
         .primary {
-            background: #2563eb;
-            color: white;
+            border: 1px solid var(--brand);
+            background: var(--brand);
+            color: #ffffff;
+            box-shadow: 0 10px 24px var(--brand-shadow);
         }
 
         .secondary {
-            background: #e2e8f0;
-            color: #0f172a;
+            border: 1px solid var(--border);
+            background: var(--surface-alt);
+            color: var(--text-strong);
         }
 
         .modal-open {
@@ -359,15 +553,15 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             align-items: center;
             justify-content: center;
             padding: 20px;
-            background: rgba(15, 23, 42, 0.64);
+            background: var(--overlay);
             z-index: 1000;
         }
 
         .modal-window {
             width: min(100%, 420px);
-            background: white;
+            background: var(--surface);
             border-radius: 18px;
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+            box-shadow: var(--shadow-modal);
             position: relative;
         }
 
@@ -383,21 +577,21 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             border-radius: 50%;
             display: grid;
             place-items: center;
-            background: #dcfce7;
-            color: #166534;
+            background: var(--success-bg);
+            color: var(--success-text);
             font-size: 28px;
             font-weight: bold;
         }
 
         .modal-title {
             margin: 0 0 8px;
-            color: #0f172a;
+            color: var(--text-strong);
             font-size: 22px;
         }
 
         .modal-message {
             margin: 0;
-            color: #475569;
+            color: var(--text-muted);
             font-size: 14px;
         }
 
@@ -413,19 +607,21 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         .table-wrapper {
             overflow-x: auto;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border);
             border-radius: 10px;
+            background: var(--surface);
         }
 
         table {
             width: 100%;
             min-width: 2300px;
             border-collapse: collapse;
-            background: white;
+            background: var(--surface);
         }
 
-        th, td {
-            border: 1px solid #cbd5e1;
+        th,
+        td {
+            border: 1px solid var(--border-strong);
             padding: 8px;
             font-size: 13px;
             text-align: left;
@@ -433,17 +629,17 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
         th {
-            background: #e2e8f0;
-            color: #0f172a;
+            background: var(--table-head);
+            color: var(--text-strong);
         }
 
         tr:nth-child(even) {
-            background: #f8fafc;
+            background: var(--table-alt);
         }
 
         .note {
             font-size: 13px;
-            color: #64748b;
+            color: var(--text-muted);
             margin-top: 10px;
         }
 
@@ -462,14 +658,33 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 padding: 14px 16px;
             }
 
+            .header-bar {
+                flex-direction: column;
+                gap: 14px;
+            }
+
+            .header-meta {
+                width: 100%;
+                align-items: flex-start;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .company-switch {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .header-kicker {
+                font-size: 11px;
+            }
+
             .field-grid,
             .field-grid.compact {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
-            .header-bar {
-                align-items: flex-start;
-                gap: 12px;
             }
 
             header h1 {
@@ -575,7 +790,9 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             select,
             textarea,
             button,
-            .button-link {
+            .button-link,
+            .switch-link,
+            .theme-toggle {
                 font-size: 13px;
             }
 
@@ -586,7 +803,9 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
 
             button,
-            .button-link {
+            .button-link,
+            .switch-link,
+            .theme-toggle {
                 padding: 9px 14px;
             }
 
@@ -621,19 +840,28 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
     </style>
 </head>
-<body>
+<body class="company-<?= htmlspecialchars($company["key"], ENT_QUOTES, "UTF-8") ?>">
 
 <header>
     <div class="header-bar">
         <div class="header-copy">
-            <h1>System Monitoring Form</h1>
-            <p>Records are saved to MySQL and can be viewed by all computers on the same network.</p>
+            <div class="header-kicker"><?= htmlspecialchars($company["company_name"], ENT_QUOTES, "UTF-8") ?></div>
+            <h1><?= htmlspecialchars($company["system_name"], ENT_QUOTES, "UTF-8") ?></h1>
+            <p>Records are saved to the <?= htmlspecialchars($company["table_name"], ENT_QUOTES, "UTF-8") ?> table and can be viewed by all computers on the same network.</p>
         </div>
-        <img
-            src="assets/images/mitsubishi-logo.png"
-            alt="Mitsubishi Motors Drive your Ambition"
-            class="header-logo"
-        >
+
+        <div class="header-meta">
+            <div class="header-actions">
+                <div class="company-switch" aria-label="Switch company">
+                    <a href="<?= htmlspecialchars($mitsubishiUrl, ENT_QUOTES, "UTF-8") ?>" class="switch-link<?= $company["key"] === "mitsubishi" ? " active" : "" ?>">Mitsubishi</a>
+                    <a href="<?= htmlspecialchars($hyundaiUrl, ENT_QUOTES, "UTF-8") ?>" class="switch-link<?= $company["key"] === "hyundai" ? " active" : "" ?>">Hyundai</a>
+                </div>
+
+                <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">Dark Mode</button>
+            </div>
+
+            
+        </div>
     </div>
 </header>
 
@@ -642,6 +870,8 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <h2>Encode New Record</h2>
 
         <form action="save.php" method="POST">
+            <input type="hidden" name="company" value="<?= htmlspecialchars($company["key"], ENT_QUOTES, "UTF-8") ?>">
+
             <section class="form-section compact-section">
                 <div class="section-header">
                 </div>
@@ -757,7 +987,7 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <?php renderOptionButtons("classification", $classificationOptions); ?>
                     </div>
 
-                    <div class="selector-field-medium">
+                    <div class="selector-field selector-field-medium">
                         <label>Processed Type</label>
                         <?php renderOptionButtons("processed_type", $processedTypeOptions, true); ?>
                     </div>
@@ -772,15 +1002,15 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <div class="buttons">
                 <button type="submit" class="primary">Enter / Save to Database</button>
                 <button type="reset" class="secondary">Clear Form</button>
-                <a href="export_excel.php" class="button-link secondary">Export to Excel</a>
+                <a href="<?= htmlspecialchars($exportUrl, ENT_QUOTES, "UTF-8") ?>" class="button-link secondary">Export to Excel</a>
             </div>
         </form>
 
-        <p class="note">Tip: Leave this page open to monitor records. Refresh the page to see new entries from other computers.</p>
+        <p class="note">Tip: Leave this page open to monitor <?= htmlspecialchars($company["company_name"], ENT_QUOTES, "UTF-8") ?> records. Refresh the page to see new entries from other computers.</p>
     </section>
 
     <section class="card">
-        <h2>System Monitoring Summary</h2>
+        <h2><?= htmlspecialchars($company["system_name"], ENT_QUOTES, "UTF-8") ?> Summary</h2>
 
         <div class="table-wrapper">
             <table>
@@ -844,6 +1074,8 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <script>
     (function () {
         var uppercaseFields = document.querySelectorAll('input[type="text"], textarea');
+        var root = document.documentElement;
+        var themeToggle = document.getElementById('theme-toggle');
 
         for (var index = 0; index < uppercaseFields.length; index++) {
             uppercaseFields[index].addEventListener('input', function () {
@@ -854,6 +1086,29 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 uppercaseFields[index].value = uppercaseFields[index].value.toUpperCase();
             }
         }
+
+        if (!themeToggle) {
+            return;
+        }
+
+        var updateThemeToggle = function () {
+            var isDark = root.classList.contains('dark-theme');
+            themeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+            themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+        };
+
+        themeToggle.addEventListener('click', function () {
+            root.classList.toggle('dark-theme');
+
+            try {
+                window.localStorage.setItem('systemMonitoringTheme', root.classList.contains('dark-theme') ? 'dark' : 'light');
+            } catch (error) {
+            }
+
+            updateThemeToggle();
+        });
+
+        updateThemeToggle();
     }());
 </script>
 
@@ -863,7 +1118,7 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <div class="modal-body">
                 <div class="modal-icon" aria-hidden="true">&#10003;</div>
                 <h3 class="modal-title" id="saved-modal-title">Record Saved</h3>
-                <p class="modal-message" id="saved-modal-message">Record successfully saved to the database.</p>
+                <p class="modal-message" id="saved-modal-message"><?= htmlspecialchars($savedMessage, ENT_QUOTES, "UTF-8") ?></p>
                 <div class="modal-actions">
                     <button type="button" class="primary modal-button" id="saved-modal-ok">OK</button>
                 </div>

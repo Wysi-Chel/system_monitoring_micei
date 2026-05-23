@@ -1,6 +1,9 @@
 <?php
 require "config.php";
 
+$company = resolveCompanyConfig($_POST["company"] ?? $_GET["company"] ?? null, $companyConfigs);
+$tableNameSql = quoteMysqlIdentifier($company["table_name"]);
+
 function shouldPreserveToken(string $token): bool
 {
     $core = preg_replace('/^[^\p{L}\p{N}_]+|[^\p{L}\p{N}_#\/\-\(\)]+$/u', '', $token) ?? '';
@@ -117,7 +120,7 @@ function normalizeMultiSelectInput($value): string
     return implode(', ', $normalizedValues);
 }
 
-$sql = "INSERT INTO monitoring_records (
+$sql = "INSERT INTO {$tableNameSql} (
     date_recorded,
     transaction_date,
     branch,
@@ -224,6 +227,11 @@ $stmt->execute([
     ":offense" => $normalizedText["offense"]
 ]);
 
-header("Location: index.php?saved=1");
+$redirectQuery = http_build_query([
+    "company" => $company["key"],
+    "saved" => 1,
+]);
+
+header("Location: index.php?" . $redirectQuery);
 exit;
 ?>
