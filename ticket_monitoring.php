@@ -33,6 +33,7 @@ $hyundaiUrl = buildUrl("ticket_monitoring.php", $ticketQueryParams, [
     "page" => 1,
 ]);
 $mainPageUrl = buildUrl("index.php", ["company" => $company["key"]]);
+$exportUrl = buildUrl("export_ticket_excel.php", buildMonitoringListQueryParams($company["key"], $filters, false));
 $clearFiltersUrl = buildUrl("ticket_monitoring.php", ["company" => $company["key"]]);
 $activeFilterBadges = buildTicketFilterBadges($filters, $fixedBranch);
 $ticketSummaryAnchor = "#ticket-summary";
@@ -149,6 +150,7 @@ $ticketFormDefaults = [
                 <h2>Ticket Monitoring Summary</h2>
                 <!-- <p class="note summary-note">Review saved ticket records, change the status when needed, and keep track of how long each ticket has been open. Resolved and closed tickets are locked from further edits.</p> -->
             </div>
+            <a href="<?= e($exportUrl) ?>" class="button-link secondary">Export Filtered Excel</a>
         </div>
 
         <form action="ticket_monitoring.php#ticket-summary" method="GET" class="summary-filter-form">

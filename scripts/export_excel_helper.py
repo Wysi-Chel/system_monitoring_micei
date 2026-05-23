@@ -20,7 +20,7 @@ HEADER_BOTTOM = Side(style="medium", color="000000")
 LIGHT_BORDER = Border(left=THIN_GRID, right=THIN_GRID, top=THIN_GRID, bottom=THIN_GRID)
 HEADER_BORDER = Border(left=THIN_GRID, right=THIN_GRID, top=THIN_GRID, bottom=HEADER_BOTTOM)
 
-DATE_HEADERS = {"Date", "Transaction Date"}
+DATE_HEADERS = {"Date", "Transaction Date", "Date Created"}
 CENTER_HEADERS = {"Date", "Transaction Date", "Branch", "Department", "Module", "Amount", "Status"}
 
 
@@ -230,14 +230,22 @@ def main() -> int:
 
     for raw_row in rows:
         row = [sentence_case_text(value) for value in raw_row]
-        if len(row) > 0:
-            row[0] = parse_short_date(row[0])
-        if len(row) > 1:
-            row[1] = parse_short_date(row[1])
-        if len(row) > 9:
-            row[9] = coerce_amount(row[9])
-        if len(row) > 20:
-            row[20] = parse_timestamp(row[20])
+
+        for index, header in enumerate(headers):
+            if index >= len(row):
+                continue
+
+            if header in DATE_HEADERS:
+                row[index] = parse_short_date(row[index])
+                continue
+
+            if header == "Amount":
+                row[index] = coerce_amount(row[index])
+                continue
+
+            if header == "Encoded At":
+                row[index] = parse_timestamp(row[index])
+
         worksheet.append(row)
 
     worksheet.freeze_panes = "A2"
