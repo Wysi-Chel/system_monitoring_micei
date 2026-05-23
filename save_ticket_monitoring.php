@@ -33,17 +33,19 @@ function normalizeTicketDate(?string $value): ?string
 }
 
 $branch = $company["fixed_branch"] ?? normalizeTicketField($_POST["branch"] ?? "", true);
+$module = normalizeAllowedFilter($_POST["module"] ?? "", $moduleOptions);
 $ticketNumber = normalizeTicketField($_POST["ticket_number"] ?? "", true);
 $ticketDescription = normalizeTicketField($_POST["ticket_description"] ?? "");
 $dateCreated = normalizeTicketDate($_POST["date_created"] ?? "");
 $createdBy = normalizeTicketField($_POST["created_by"] ?? "", true);
-$ticketStatus = normalizeTicketField($_POST["ticket_status"] ?? "");
+$ticketStatus = $ticketStatusOptions[0];
 $resolvedAt = isLockedTicketStatus($ticketStatus)
     ? (new DateTimeImmutable("now", new DateTimeZone("Asia/Manila")))->format("Y-m-d H:i:s")
     : null;
 
 $sql = "INSERT INTO {$ticketTableNameSql} (
     branch,
+    module,
     ticket_number,
     ticket_description,
     date_created,
@@ -52,6 +54,7 @@ $sql = "INSERT INTO {$ticketTableNameSql} (
     resolved_at
 ) VALUES (
     :branch,
+    :module,
     :ticket_number,
     :ticket_description,
     :date_created,
@@ -63,6 +66,7 @@ $sql = "INSERT INTO {$ticketTableNameSql} (
 $stmt = $pdo->prepare($sql);
 $stmt->execute([
     ":branch" => $branch,
+    ":module" => $module,
     ":ticket_number" => $ticketNumber,
     ":ticket_description" => $ticketDescription,
     ":date_created" => $dateCreated,

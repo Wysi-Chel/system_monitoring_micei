@@ -138,5 +138,4 @@
         </div>
     </form>
 
-    <p class="note">Tip: Leave this page open to monitor <?= e($company["company_name"]) ?> records. Refresh the page to see new entries from other computers.</p>
 </section>

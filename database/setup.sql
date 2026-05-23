@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS `NTR system monitoring` (
 CREATE TABLE IF NOT EXISTS `MICEI ticket monitoring` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     branch VARCHAR(100),
+    module VARCHAR(100),
     ticket_number VARCHAR(150) NOT NULL,
     ticket_description TEXT,
     date_created DATE NOT NULL,
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS `MICEI ticket monitoring` (
 CREATE TABLE IF NOT EXISTS `NTR ticket monitoring` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     branch VARCHAR(100),
+    module VARCHAR(100),
     ticket_number VARCHAR(150) NOT NULL,
     ticket_description TEXT,
     date_created DATE NOT NULL,
@@ -79,6 +81,7 @@ CREATE TABLE IF NOT EXISTS `MICEI resolved ticket monitoring` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     source_ticket_id INT NOT NULL,
     branch VARCHAR(100),
+    module VARCHAR(100),
     ticket_number VARCHAR(150) NOT NULL,
     ticket_description TEXT,
     date_created DATE NOT NULL,
@@ -94,6 +97,7 @@ CREATE TABLE IF NOT EXISTS `NTR resolved ticket monitoring` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     source_ticket_id INT NOT NULL,
     branch VARCHAR(100),
+    module VARCHAR(100),
     ticket_number VARCHAR(150) NOT NULL,
     ticket_description TEXT,
     date_created DATE NOT NULL,

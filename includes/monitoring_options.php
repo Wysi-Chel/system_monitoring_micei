@@ -1,11 +1,11 @@
 <?php
 $branchOptions = ["MGSC", "NGSC", "KID", "GLA", "All Dealers"];
 $departmentOptions = ["Accounting", "Sales", "Service", "Parts", "BNC", "CNC", "Manila", "BRP"];
-$moduleOptions = ["AMIS", "CMIS", "CSMS", "SMIS", "PMIS"];
+$moduleOptions = ["AMIS", "CMIS", "SMIS", "PMIS", "CSMS"];
 $classificationOptions = ["User Error", "System Error", "Data Correction", "Others"];
 $processedTypeOptions = ["Cancellation", "Unposting", "Void", "Others"];
 $statusOptions = ["Pending", "Cancelled", "Unposted", "Voided"];
-$ticketStatusOptions = ["Open", "In Progress", "On Hold", "Resolved", "Closed"];
+$ticketStatusOptions = ["Open", "In Progress", "On Hold", "Resolved"];
 $rowsPerPageOptions = [25, 50, 100];
 
 $summaryColumns = [
@@ -35,10 +35,11 @@ $summaryColumns = [
 $ticketMonitoringColumns = [
     ["key" => "date_created", "label" => "Date Created", "format" => "date"],
     ["key" => "branch", "label" => "Branch", "format" => "text"],
+    ["key" => "module", "label" => "Module", "format" => "text"],
     ["key" => "ticket_number", "label" => "Ticket Number", "format" => "text"],
     ["key" => "ticket_description", "label" => "Description", "format" => "text"],
     ["key" => "created_by", "label" => "Created By", "format" => "text"],
-    ["key" => "ticket_status", "label" => "Status", "format" => "text"],
     ["key" => "ticket_age", "label" => "Ticket Age", "format" => "ticket_age"],
     ["key" => "created_at", "label" => "Encoded At", "format" => "timestamp"],
+    ["key" => "ticket_status", "label" => "Status", "format" => "text"],
 ];

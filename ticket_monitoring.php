@@ -45,6 +45,7 @@ $savedMessage = isset($_GET["updated"])
     ? "Ticket status successfully updated."
     : "Ticket monitoring record successfully saved to the " . $company["ticket_table_name"] . " table.";
 $ticketFormDefaults = [
+    "module" => "",
     "ticket_number" => trim((string) ($_GET["ticket_number"] ?? $_GET["q"] ?? "")),
     "ticket_description" => "",
     "date_created" => $today,
@@ -71,16 +72,20 @@ $ticketFormDefaults = [
         <div class="summary-header">
             <div>
                 <h2>Encode Ticket Record</h2>
-                <!-- <p class="note summary-note">Add the ticket number, description, who created it, and its current status here.</p> -->
+                <!-- <p class="note summary-note">Enter the basic ticket details below. New ticket records are saved with an initial status of <strong>Open</strong>.</p> -->
             </div>
             <a href="<?= e($mainPageUrl) ?>" class="button-link secondary">Back to System Monitoring</a>
         </div>
 
-        <form action="save_ticket_monitoring.php" method="POST" id="ticket-record-form">
+        <form action="save_ticket_monitoring.php" method="POST" id="ticket-record-form" class="ticket-record-form">
             <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
 
             <section class="form-section">
-                <div class="field-grid">
+                <div class="form-section-title">
+                    <h3>Ticket Details</h3>
+                </div>
+
+                <div class="field-grid ticket-form-grid">
                     <?php if ($showBranchSelector): ?>
                     <div class="field">
                         <label for="ticket-form-branch">Branch</label>
@@ -105,6 +110,16 @@ $ticketFormDefaults = [
                     </div>
 
                     <div class="field">
+                        <label for="ticket-module">Module</label>
+                        <select id="ticket-module" name="module" required>
+                            <option value="">Select module</option>
+                            <?php foreach ($moduleOptions as $option): ?>
+                            <option value="<?= e($option) ?>"<?= $ticketFormDefaults["module"] === $option ? " selected" : "" ?>><?= e($option) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="field">
                         <label for="ticket-date-created">Date Created</label>
                         <input type="date" id="ticket-date-created" name="date_created" value="<?= e($ticketFormDefaults["date_created"]) ?>" required>
                     </div>
@@ -114,28 +129,14 @@ $ticketFormDefaults = [
                         <input type="text" id="ticket-created-by" name="created_by" value="<?= e($ticketFormDefaults["created_by"]) ?>" required>
                     </div>
 
-                    <div class="field field-span-2">
+                    <div class="field field-span-2 ticket-description-field">
                         <label for="ticket-description">Description of the Ticket</label>
                         <textarea id="ticket-description" name="ticket_description" required><?= e($ticketFormDefaults["ticket_description"]) ?></textarea>
-                    </div>
-
-                    <div class="field">
-                        <label for="ticket-status-input">Status of the Ticket</label>
-                        <select id="ticket-status-input" name="ticket_status" required>
-                            <?php foreach ($ticketStatusOptions as $option): ?>
-                            <option value="<?= e($option) ?>"<?= $ticketFormDefaults["ticket_status"] === $option ? " selected" : "" ?>><?= e($option) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label for="ticket-age-preview">Age of the Ticket</label>
-                        <input type="text" id="ticket-age-preview" value="0 day(s)" readonly>
                     </div>
                 </div>
             </section>
 
-            <div class="buttons">
+            <div class="buttons ticket-form-actions">
                 <button type="submit" class="primary">Save Ticket Record</button>
                 <button type="reset" class="secondary">Clear Form</button>
             </div>
@@ -146,7 +147,7 @@ $ticketFormDefaults = [
         <div class="summary-header">
             <div>
                 <h2>Ticket Monitoring Summary</h2>
-                <p class="note summary-note">Review saved ticket records, change the status when needed, and keep track of how long each ticket has been open. Resolved and closed tickets are locked from further edits.</p>
+                <!-- <p class="note summary-note">Review saved ticket records, change the status when needed, and keep track of how long each ticket has been open. Resolved and closed tickets are locked from further edits.</p> -->
             </div>
         </div>
 
@@ -156,7 +157,7 @@ $ticketFormDefaults = [
             <div class="summary-filter-grid">
                 <div class="field">
                     <label for="ticket-search">Ticket Search</label>
-                    <input type="search" id="ticket-search" name="q" value="<?= e($filters["search"]) ?>" placeholder="Enter ticket number or description">
+                    <input type="search" id="ticket-search" name="q" value="<?= e($filters["search"]) ?>" placeholder="Enter ticket number, module, or description">
                 </div>
 
                 <?php if ($showBranchSelector): ?>
@@ -211,7 +212,7 @@ $ticketFormDefaults = [
                 <thead>
                     <tr>
                         <?php foreach ($ticketMonitoringColumns as $column): ?>
-                        <th><?= e($column["label"]) ?></th>
+                        <th class="<?= $column["key"] === "ticket_status" ? "status-column-header" : "" ?>"><?= e($column["label"]) ?></th>
                         <?php endforeach; ?>
                         <th>Action</th>
                     </tr>
@@ -225,11 +226,21 @@ $ticketFormDefaults = [
                         <?php foreach ($records as $row): ?>
                             <tr class="<?= isLockedTicketStatus($row["ticket_status"] ?? "") ? "ticket-row-resolved" : "" ?>">
                                 <?php foreach ($ticketMonitoringColumns as $column): ?>
+                                <?php if ($column["key"] === "ticket_status"): ?>
+                                <?php
+                                    $statusValue = formatSummaryValue($column, $row);
+                                    $statusClass = preg_replace('/[^a-z0-9]+/i', '-', strtolower($statusValue)) ?: 'unknown';
+                                ?>
+                                <td class="status-column-cell">
+                                    <span class="status-pill status-pill-<?= e($statusClass) ?>"><?= e($statusValue) ?></span>
+                                </td>
+                                <?php else: ?>
                                 <td><?= e(formatSummaryValue($column, $row)) ?></td>
+                                <?php endif; ?>
                                 <?php endforeach; ?>
                                 <td class="table-action-cell">
                                     <?php if (isLockedTicketStatus($row["ticket_status"] ?? "")): ?>
-                                        <span class="row-lock-label">Locked</span>
+                                        <span class="row-lock-label" aria-label="Locked" title="Locked">&#128274;</span>
                                     <?php else: ?>
                                         <form action="update_ticket_status.php" method="POST" class="ticket-status-form">
                                             <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
@@ -239,12 +250,19 @@ $ticketFormDefaults = [
                                             <input type="hidden" name="filter_status" value="<?= e($filters["ticket_status"]) ?>">
                                             <input type="hidden" name="filter_per_page" value="<?= e($filters["per_page"]) ?>">
                                             <input type="hidden" name="filter_page" value="<?= e($pagination["page"]) ?>">
-                                            <select name="new_ticket_status" class="ticket-status-select" aria-label="Change ticket status">
+                                            <select
+                                                name="new_ticket_status"
+                                                class="ticket-status-select"
+                                                aria-label="Edit ticket status"
+                                                title="Edit Status"
+                                                onchange="if (this.value !== '') { this.form.submit(); }"
+                                            >
+                                                <option value="" selected>&#9998;</option>
                                                 <?php foreach ($ticketStatusOptions as $option): ?>
-                                                <option value="<?= e($option) ?>"<?= ($row["ticket_status"] ?? "") === $option ? " selected" : "" ?>><?= e($option) ?></option>
+                                                    <?php if (($row["ticket_status"] ?? "") === $option) { continue; } ?>
+                                                <option value="<?= e($option) ?>"><?= e($option) ?></option>
                                                 <?php endforeach; ?>
                                             </select>
-                                            <button type="submit" class="button-link secondary compact-button">Change Status</button>
                                         </form>
                                     <?php endif; ?>
                                 </td>

@@ -340,6 +340,22 @@ textarea:focus {
     max-width: 100%;
 }
 
+.form-section-title {
+    margin-bottom: 14px;
+}
+
+.form-section-title h3 {
+    margin: 0 0 4px;
+    color: var(--text);
+    font-size: 15px;
+}
+
+.form-section-title p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
 .field-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -348,6 +364,28 @@ textarea:focus {
 
 .field-grid.compact {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.page-ticket-monitoring .ticket-record-form {
+    width: 100%;
+    max-width: none;
+}
+
+body.page-ticket-monitoring .ticket-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+body.page-ticket-monitoring .ticket-description-field {
+    grid-column: 1 / -1;
+}
+
+body.page-ticket-monitoring .ticket-description-field textarea {
+    min-height: 110px;
+}
+
+body.page-ticket-monitoring .ticket-form-actions {
+    justify-content: flex-end;
 }
 
 .date-grid {
@@ -563,35 +601,122 @@ button,
 
 .table-action-cell {
     white-space: normal;
-    min-width: 210px;
+    min-width: 165px;
+    vertical-align: middle;
 }
 
 .ticket-status-form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
+    margin: 0;
+    display: inline-block;
 }
 
 .ticket-status-select {
-    min-width: 120px;
-    max-width: 160px;
+    width: 52px;
+    min-width: 52px;
+    max-width: 52px;
+    padding: 7px 30px 7px 10px;
+    border: 1px solid var(--brand);
+    background-color: var(--brand-soft);
+    color: var(--brand-dark);
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    appearance: none;
+    text-align: center;
+    text-align-last: center;
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--brand-dark) 50%),
+        linear-gradient(135deg, var(--brand-dark) 50%, transparent 50%);
+    background-position:
+        calc(100% - 16px) calc(50% - 2px),
+        calc(100% - 11px) calc(50% - 2px);
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+    transition: width 0.16s ease, min-width 0.16s ease, max-width 0.16s ease;
 }
 
-.compact-button {
-    padding: 7px 10px;
+.ticket-status-select:focus {
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
+    padding-left: 10px;
     font-size: 12px;
+    text-align: left;
+    text-align-last: left;
+    outline: none;
+    box-shadow: 0 0 0 3px var(--focus);
+}
+
+.ticket-status-select option {
+    color: var(--text);
+    font-size: 12px;
+}
+
+.status-column-header {
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+}
+
+.status-column-cell {
+    text-align: center;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 86px;
+    padding: 5px 10px;
+    border: 1px solid transparent;
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.status-pill-open {
+    background: #f7e8c9;
+    border-color: #e2c48f;
+    color: #875700;
+}
+
+.status-pill-in-progress {
+    background: #dceaf9;
+    border-color: #9fc3ea;
+    color: #084d94;
+}
+
+.status-pill-on-hold {
+    background: #ece0f8;
+    border-color: #c8afe4;
+    color: #6c4692;
+}
+
+.status-pill-resolved,
+.status-pill-closed {
+    background: #dff3e2;
+    border-color: #8fc59a;
+    color: #1f5e2d;
+}
+
+.status-pill-unknown {
+    background: var(--surface-soft);
+    border-color: var(--border);
+    color: var(--text-soft);
 }
 
 .row-lock-label {
     display: inline-flex;
     align-items: center;
-    padding: 6px 10px;
+    justify-content: center;
+    min-width: 40px;
+    padding: 6px 8px;
     border: 1px solid var(--border);
     background: var(--surface-soft);
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: bold;
+    line-height: 1;
 }
 
 .active-filters {
@@ -701,13 +826,17 @@ table {
     white-space: nowrap;
 }
 
-.compact-summary-table td:nth-child(4) {
+.compact-summary-table td:nth-child(5) {
     max-width: 280px;
     white-space: normal;
 }
 
 .compact-summary-table .table-action-cell {
     min-width: 180px;
+}
+
+.compact-summary-table .status-column-cell {
+    min-width: 110px;
 }
 
 th,
@@ -744,6 +873,13 @@ tr:nth-child(even) {
     color: #1f5e2d;
 }
 
+.ticket-row-resolved .status-pill-resolved,
+.ticket-row-resolved .status-pill-closed {
+    background: #cfe9d5;
+    border-color: #84ba90;
+    color: #1f5e2d;
+}
+
 html.dark-theme .ticket-row-resolved td {
     background: #1f3d28;
     color: #c9f0d2;
@@ -758,6 +894,43 @@ html.dark-theme .ticket-row-resolved .row-lock-label {
     background: #2a5235;
     color: #c9f0d2;
 }
+
+html.dark-theme .status-column-header {
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+}
+
+html.dark-theme .status-pill-open {
+    background: #57421b;
+    border-color: #8c6a34;
+    color: #f6d9a0;
+}
+
+html.dark-theme .status-pill-in-progress {
+    background: #18385a;
+    border-color: #356b9f;
+    color: #cfe5fd;
+}
+
+html.dark-theme .status-pill-on-hold {
+    background: #402b57;
+    border-color: #715499;
+    color: #ecd9ff;
+}
+
+html.dark-theme .status-pill-resolved,
+html.dark-theme .status-pill-closed {
+    background: #25462d;
+    border-color: #497657;
+    color: #c9f0d2;
+}
+
+html.dark-theme .ticket-row-resolved .status-pill-resolved,
+html.dark-theme .ticket-row-resolved .status-pill-closed {
+    background: #2a5235;
+    border-color: #4b7a58;
+}
+
 
 .empty-table {
     padding: 24px 16px;
@@ -920,10 +1093,6 @@ html.dark-theme .ticket-row-resolved .row-lock-label {
 
     .page-numbers {
         justify-content: flex-start;
-    }
-
-    .ticket-status-form {
-        align-items: stretch;
     }
 
     .ticket-status-select {

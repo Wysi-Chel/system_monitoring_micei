@@ -4,7 +4,6 @@
     <div class="summary-header">
         <div>
             <h2><?= e($company["system_name"]) ?> Summary</h2>
-            <p class="note summary-note">Filter the summary by branch and status, then page through the matching records without leaving this section.</p>
         </div>
         <a href="<?= e($exportUrl) ?>" class="button-link secondary">Export Filtered Excel</a>
     </div>

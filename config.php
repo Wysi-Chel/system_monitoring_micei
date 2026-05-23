@@ -49,6 +49,16 @@ function quoteMysqlIdentifier(string $identifier): string
     return "`" . str_replace("`", "``", $identifier) . "`";
 }
 
+function ensureMysqlTableColumn(PDO $pdo, string $tableNameSql, string $columnName, string $definitionSql): void
+{
+    $columnNameSql = $pdo->quote($columnName);
+    $columnExists = (bool) $pdo->query("SHOW COLUMNS FROM {$tableNameSql} LIKE {$columnNameSql}")->fetch(PDO::FETCH_ASSOC);
+
+    if (!$columnExists) {
+        $pdo->exec("ALTER TABLE {$tableNameSql} ADD COLUMN {$definitionSql}");
+    }
+}
+
 function ensureTicketMonitoringTable(PDO $pdo, array $company): void
 {
     if (!isset($company["ticket_table_name"]) || !is_string($company["ticket_table_name"]) || trim($company["ticket_table_name"]) === "") {
@@ -60,6 +70,7 @@ function ensureTicketMonitoringTable(PDO $pdo, array $company): void
         "CREATE TABLE IF NOT EXISTS {$tableNameSql} (
             id INT AUTO_INCREMENT PRIMARY KEY,
             branch VARCHAR(100),
+            module VARCHAR(100),
             ticket_number VARCHAR(150) NOT NULL,
             ticket_description TEXT,
             date_created DATE NOT NULL,
@@ -69,6 +80,8 @@ function ensureTicketMonitoringTable(PDO $pdo, array $company): void
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )"
     );
+
+    ensureMysqlTableColumn($pdo, $tableNameSql, "module", "module VARCHAR(100) AFTER branch");
 }
 
 function ensureResolvedTicketMonitoringTable(PDO $pdo, array $company): void
@@ -83,6 +96,7 @@ function ensureResolvedTicketMonitoringTable(PDO $pdo, array $company): void
             id INT AUTO_INCREMENT PRIMARY KEY,
             source_ticket_id INT NOT NULL,
             branch VARCHAR(100),
+            module VARCHAR(100),
             ticket_number VARCHAR(150) NOT NULL,
             ticket_description TEXT,
             date_created DATE NOT NULL,
@@ -94,6 +108,8 @@ function ensureResolvedTicketMonitoringTable(PDO $pdo, array $company): void
             UNIQUE KEY unique_source_ticket_id (source_ticket_id)
         )"
     );
+
+    ensureMysqlTableColumn($pdo, $tableNameSql, "module", "module VARCHAR(100) AFTER branch");
 }
 
 try {

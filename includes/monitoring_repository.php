@@ -174,6 +174,7 @@ function buildTicketMonitoringWhereClause(array $filters, array &$bindings): str
         $searchValue = "%" . escapeLikeTerm($filters["search"]) . "%";
         $searchColumns = [
             "ticket_number",
+            "module",
             "ticket_description",
             "created_by",
             "ticket_status",
@@ -333,6 +334,7 @@ function archiveResolvedTicketRecord(PDO $pdo, string $resolvedTableNameSql, arr
     $sql = "INSERT INTO {$resolvedTableNameSql} (
         source_ticket_id,
         branch,
+        module,
         ticket_number,
         ticket_description,
         date_created,
@@ -343,6 +345,7 @@ function archiveResolvedTicketRecord(PDO $pdo, string $resolvedTableNameSql, arr
     ) VALUES (
         :source_ticket_id,
         :branch,
+        :module,
         :ticket_number,
         :ticket_description,
         :date_created,
@@ -353,6 +356,7 @@ function archiveResolvedTicketRecord(PDO $pdo, string $resolvedTableNameSql, arr
     )
     ON DUPLICATE KEY UPDATE
         branch = VALUES(branch),
+        module = VALUES(module),
         ticket_number = VALUES(ticket_number),
         ticket_description = VALUES(ticket_description),
         date_created = VALUES(date_created),
@@ -365,6 +369,7 @@ function archiveResolvedTicketRecord(PDO $pdo, string $resolvedTableNameSql, arr
     $stmt->execute([
         ":source_ticket_id" => (int) ($ticketRecord["id"] ?? 0),
         ":branch" => $ticketRecord["branch"] ?? "",
+        ":module" => $ticketRecord["module"] ?? "",
         ":ticket_number" => $ticketRecord["ticket_number"] ?? "",
         ":ticket_description" => $ticketRecord["ticket_description"] ?? "",
         ":date_created" => $ticketRecord["date_created"] ?? null,
