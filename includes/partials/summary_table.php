@@ -16,7 +16,7 @@
             <?php if ($showBranchSelector): ?>
             <div class="field">
                 <label for="filter-branch">Branch</label>
-                <select id="filter-branch" name="branch">
+                <select id="filter-branch" name="branch">a
                     <option value="">All branches</option>
                     <?php foreach ($branchOptions as $option): ?>
                     <option value="<?= e($option) ?>"<?= $filters["branch"] === $option ? " selected" : "" ?>><?= e($option) ?></option>
