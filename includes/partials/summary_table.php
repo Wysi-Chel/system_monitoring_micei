@@ -46,7 +46,7 @@
                 <strong><?= e($pagination["start_item"]) ?>-<?= e($pagination["end_item"]) ?></strong> of <strong><?= e($totalRecords) ?></strong> records
             </div>
         </div>
-        <br>
+        <br>    
     </form>
 
     <?php if ($activeFilterBadges !== []): ?>
