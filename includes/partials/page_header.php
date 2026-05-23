@@ -1,7 +1,7 @@
 <?php
 $headerKicker = $headerKicker ?? $company["company_name"];
 $headerTitle = $headerTitle ?? $company["system_name"];
-$headerDescription = $headerDescription ?? ("Records are saved to the " . $company["table_name"] . " table and can be viewed by all computers on the same network.");
+$headerDescription = $headerDescription ?? ("");
 $showCompanySwitch = $showCompanySwitch ?? true;
 ?>
 <header>
