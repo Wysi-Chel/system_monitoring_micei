@@ -20,6 +20,17 @@ function normalizeDateFilter($value): string
     return $date && $date->format("Y-m-d") === $value ? $value : "";
 }
 
+function normalizeMonthFilter($value): string
+{
+    $value = trim((string) $value);
+    if ($value === "") {
+        return "";
+    }
+
+    $month = DateTimeImmutable::createFromFormat("Y-m", $value);
+    return $month && $month->format("Y-m") === $value ? $value : "";
+}
+
 function normalizeAllowedFilter($value, array $allowedOptions): string
 {
     $value = trim((string) $value);
@@ -51,9 +62,11 @@ function buildMonitoringFilters(array $input, array $company, array $filterOptio
 
     $filters = [
         "search" => "",
+        "month" => normalizeMonthFilter($input["month"] ?? ""),
         "date_from" => "",
         "date_to" => "",
         "branch" => "",
+        "dealer" => normalizeAllowedFilter($input["dealer"] ?? "", $filterOptions["dealer"] ?? []),
         "department" => "",
         "module" => "",
         "status" => normalizeAllowedFilter($input["status"] ?? "", $filterOptions["status"] ?? []),
@@ -98,6 +111,7 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
         $searchValue = "%" . escapeLikeTerm($filters["search"]) . "%";
         $searchColumns = [
             "branch",
+            "dealer",
             "department",
             "module",
             "user_name",
@@ -130,6 +144,16 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
         $conditions[] = "(" . implode(" OR ", $searchParts) . ")";
     }
 
+    if (($filters["month"] ?? "") !== "") {
+        $monthStart = DateTimeImmutable::createFromFormat("Y-m-d", $filters["month"] . "-01");
+        if ($monthStart instanceof DateTimeImmutable) {
+            $monthEnd = $monthStart->modify("first day of next month");
+            $conditions[] = "date_recorded >= :month_start AND date_recorded < :month_end";
+            $bindings["month_start"] = $monthStart->format("Y-m-d");
+            $bindings["month_end"] = $monthEnd->format("Y-m-d");
+        }
+    }
+
     if ($filters["date_from"] !== "") {
         $conditions[] = "date_recorded >= :date_from";
         $bindings["date_from"] = $filters["date_from"];
@@ -143,6 +167,11 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
     if ($filters["branch"] !== "") {
         $conditions[] = "branch = :branch";
         $bindings["branch"] = $filters["branch"];
+    }
+
+    if (($filters["dealer"] ?? "") !== "") {
+        $conditions[] = "dealer = :dealer";
+        $bindings["dealer"] = $filters["dealer"];
     }
 
     if ($filters["department"] !== "") {
@@ -247,6 +276,127 @@ function fetchMonitoringRecords(
 
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function fetchDataCorrectionOffenseNumbersByRecordId(PDO $pdo, string $tableNameSql, array $userNames): array
+{
+    $normalizedUserNames = [];
+
+    foreach ($userNames as $userName) {
+        $normalizedUserName = strtoupper(trim((string) $userName));
+        if ($normalizedUserName === "" || in_array($normalizedUserName, $normalizedUserNames, true)) {
+            continue;
+        }
+
+        $normalizedUserNames[] = $normalizedUserName;
+    }
+
+    if ($normalizedUserNames === []) {
+        return [];
+    }
+
+    $processedTypeNeedle = strtoupper(escapeLikeTerm("Data Correction"));
+    $placeholders = [];
+    $bindings = [
+        ":processed_type" => "%," . $processedTypeNeedle . ",%",
+    ];
+
+    foreach ($normalizedUserNames as $index => $userName) {
+        $placeholder = ":user_name_" . $index;
+        $placeholders[] = $placeholder;
+        $bindings[$placeholder] = $userName;
+    }
+
+    $sql = "SELECT id, UPPER(TRIM(user_name)) AS user_key
+            FROM {$tableNameSql}
+            WHERE COALESCE(TRIM(user_name), '') <> ''
+              AND UPPER(CONCAT(',', REPLACE(COALESCE(processed_type, ''), ', ', ','), ',')) LIKE :processed_type ESCAPE '\\\\'
+              AND UPPER(TRIM(user_name)) IN (" . implode(", ", $placeholders) . ")
+            ORDER BY UPPER(TRIM(user_name)) ASC, id ASC";
+
+    $stmt = $pdo->prepare($sql);
+    foreach ($bindings as $placeholder => $value) {
+        $stmt->bindValue($placeholder, $value, PDO::PARAM_STR);
+    }
+
+    $stmt->execute();
+    $offenseNumbersByRecordId = [];
+    $offenseCountsByUser = [];
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $userKey = trim((string) ($row["user_key"] ?? ""));
+        $recordId = (int) ($row["id"] ?? 0);
+        if ($userKey === "" || $recordId <= 0) {
+            continue;
+        }
+
+        $offenseCountsByUser[$userKey] = ($offenseCountsByUser[$userKey] ?? 0) + 1;
+        $offenseNumbersByRecordId[$recordId] = $offenseCountsByUser[$userKey];
+    }
+
+    return $offenseNumbersByRecordId;
+}
+
+function enrichMonitoringRecordsWithDataCorrectionActions(PDO $pdo, string $tableNameSql, array $records): array
+{
+    if ($records === []) {
+        return $records;
+    }
+
+    $userNames = array_map(
+        static fn(array $row): string => (string) ($row["user_name"] ?? ""),
+        $records
+    );
+    $offenseNumbersByRecordId = fetchDataCorrectionOffenseNumbersByRecordId($pdo, $tableNameSql, $userNames);
+
+    foreach ($records as &$row) {
+        $row["data_correction_offense_count"] = 0;
+        $row["data_correction_alert"] = "";
+        $row["disciplinary_action"] = "";
+
+        if (!containsMultiValueText((string) ($row["processed_type"] ?? ""), "Data Correction")) {
+            continue;
+        }
+
+        $recordId = (int) ($row["id"] ?? 0);
+        if ($recordId <= 0) {
+            continue;
+        }
+
+        $offenseCount = (int) ($offenseNumbersByRecordId[$recordId] ?? 0);
+        if ($offenseCount <= 0) {
+            continue;
+        }
+
+        $row["data_correction_offense_count"] = $offenseCount;
+        $row["data_correction_alert"] = (string) $offenseCount;
+        $row["disciplinary_action"] = $offenseCount >= 3 ? "available" : "";
+    }
+    unset($row);
+
+    return $records;
+}
+
+function fetchMonitoringRecordById(PDO $pdo, string $tableNameSql, int $id): ?array
+{
+    $stmt = $pdo->prepare("SELECT * FROM {$tableNameSql} WHERE id = :id LIMIT 1");
+    $stmt->bindValue(":id", $id, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $record = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $record === false ? null : $record;
+}
+
+function updateMonitoringRecordActionTaken(PDO $pdo, string $tableNameSql, int $id, string $actionTaken): void
+{
+    $stmt = $pdo->prepare(
+        "UPDATE {$tableNameSql}
+         SET action_taken = :action_taken
+         WHERE id = :id"
+    );
+    $stmt->bindValue(":action_taken", $actionTaken, PDO::PARAM_STR);
+    $stmt->bindValue(":id", $id, PDO::PARAM_INT);
+    $stmt->execute();
 }
 
 function countTicketMonitoringRecords(PDO $pdo, string $tableNameSql, array $filters): int

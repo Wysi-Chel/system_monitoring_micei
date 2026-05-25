@@ -22,8 +22,42 @@
         var recordUppercaseFields = recordForm.querySelectorAll('input[type="text"], textarea');
         var ticketInput = document.getElementById("ticket");
         var ticketMonitoringLink = document.getElementById("ticket-monitoring-link");
+        var userNameInput = document.getElementById("user-name");
+        var processedTypeInputs = recordForm.querySelectorAll('input[name="processed_type[]"]');
+        var dataCorrectionMessage = "USER is required when PROCESSED TYPE includes DATA CORRECTION.";
 
         applyUppercaseBehavior(recordUppercaseFields);
+
+        if (userNameInput && processedTypeInputs.length > 0) {
+            var updateDataCorrectionValidation = function () {
+                var hasDataCorrection = false;
+
+                for (var inputIndex = 0; inputIndex < processedTypeInputs.length; inputIndex += 1) {
+                    if (
+                        processedTypeInputs[inputIndex].value === "Data Correction"
+                        && processedTypeInputs[inputIndex].checked
+                    ) {
+                        hasDataCorrection = true;
+                        break;
+                    }
+                }
+
+                if (hasDataCorrection && !userNameInput.value.trim()) {
+                    userNameInput.setCustomValidity(dataCorrectionMessage);
+                    return;
+                }
+
+                userNameInput.setCustomValidity("");
+            };
+
+            for (var processedTypeIndex = 0; processedTypeIndex < processedTypeInputs.length; processedTypeIndex += 1) {
+                processedTypeInputs[processedTypeIndex].addEventListener("change", updateDataCorrectionValidation);
+            }
+
+            userNameInput.addEventListener("input", updateDataCorrectionValidation);
+            recordForm.addEventListener("submit", updateDataCorrectionValidation);
+            updateDataCorrectionValidation();
+        }
 
         if (ticketInput && ticketMonitoringLink && ticketMonitoringLink.dataset.baseHref) {
             ticketMonitoringLink.addEventListener("click", function () {

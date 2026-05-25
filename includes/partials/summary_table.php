@@ -1,5 +1,6 @@
 <?php $paginationPages = buildPaginationPages($pagination["page"], $pagination["total_pages"]); ?>
 <?php $summaryAnchor = "#summary-section"; ?>
+<?php $monitoringActionOptions = getMonitoringActionOptions(); ?>
 <section class="card" id="summary-section">
     <div class="summary-header">
         <div>
@@ -12,10 +13,15 @@
         <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
 
         <div class="summary-filter-grid">
+            <div class="field">
+                <label for="filter-month">Month</label>
+                <input type="month" id="filter-month" name="month" value="<?= e($filters["month"] ?? "") ?>">
+            </div>
+
             <?php if ($showBranchSelector): ?>
             <div class="field">
                 <label for="filter-branch">Branch</label>
-                <select id="filter-branch" name="branch">a
+                <select id="filter-branch" name="branch">
                     <option value="">All branches</option>
                     <?php foreach ($branchOptions as $option): ?>
                     <option value="<?= e($option) ?>"<?= $filters["branch"] === $option ? " selected" : "" ?>><?= e($option) ?></option>
@@ -23,6 +29,16 @@
                 </select>
             </div>
             <?php endif; ?>
+
+            <div class="field">
+                <label for="filter-dealer">Dealers</label>
+                <select id="filter-dealer" name="dealer">
+                    <option value="">All dealers</option>
+                    <?php foreach ($dealerOptions as $option): ?>
+                    <option value="<?= e($option) ?>"<?= ($filters["dealer"] ?? "") === $option ? " selected" : "" ?>><?= e($option) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
 
             <div class="field">
                 <label for="filter-status">Status</label>
@@ -72,9 +88,41 @@
                     </tr>
                 <?php else: ?>
                     <?php foreach ($records as $row): ?>
-                        <tr>
+                        <tr class="<?= ((int) ($row["data_correction_offense_count"] ?? 0)) >= 3 ? "summary-row-alert" : "" ?>">
                             <?php foreach ($summaryColumns as $column): ?>
-                            <td><?= e(formatSummaryValue($column, $row)) ?></td>
+                            <?php if (($column["format"] ?? "text") === "action_control"): ?>
+                            <td class="summary-discipline-cell summary-action-cell">
+                                <?php if (((int) ($row["data_correction_offense_count"] ?? 0)) >= 3): ?>
+                                <form action="update_monitoring_action.php" method="POST" class="monitoring-action-form">
+                                    <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
+                                    <input type="hidden" name="record_id" value="<?= e($row["id"] ?? "") ?>">
+                                    <input type="hidden" name="filter_month" value="<?= e($filters["month"] ?? "") ?>">
+                                    <input type="hidden" name="filter_branch" value="<?= e($filters["branch"] ?? "") ?>">
+                                    <input type="hidden" name="filter_dealer" value="<?= e($filters["dealer"] ?? "") ?>">
+                                    <input type="hidden" name="filter_status" value="<?= e($filters["status"] ?? "") ?>">
+                                    <input type="hidden" name="filter_page" value="<?= e($pagination["page"]) ?>">
+                                    <select
+                                        name="action_taken"
+                                        class="summary-action-select"
+                                        aria-label="Choose disciplinary action"
+                                        title="Choose Action"
+                                        onchange="if (this.value !== '') { this.form.submit(); }"
+                                    >
+                                        <option value="" selected>&#9998;</option>
+                                        <?php foreach ($monitoringActionOptions as $option): ?>
+                                        <option value="<?= e($option) ?>"><?= e($option) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </form>
+                                <?php else: ?>
+                                <span class="summary-action-placeholder" aria-hidden="true"></span>
+                                <?php endif; ?>
+                            </td>
+                            <?php else: ?>
+                            <td class="<?= in_array($column["key"], ["data_correction_alert", "disciplinary_action", "action_taken"], true) ? "summary-discipline-cell" : "" ?>">
+                                <?= e(formatSummaryValue($column, $row)) ?>
+                            </td>
+                            <?php endif; ?>
                             <?php endforeach; ?>
                         </tr>
                     <?php endforeach; ?>

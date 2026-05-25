@@ -121,10 +121,28 @@ function normalizeMultiSelectInput($value): string
     return implode(', ', $normalizedValues);
 }
 
+function containsNormalizedMultiSelectValue(string $value, string $target): bool
+{
+    $normalizedValue = trim($value);
+    $normalizedTarget = trim($target);
+    if ($normalizedValue === '' || $normalizedTarget === '') {
+        return false;
+    }
+
+    $targetKey = mb_strtoupper($normalizedTarget, 'UTF-8');
+    $values = array_map(
+        static fn(string $item): string => mb_strtoupper(trim($item), 'UTF-8'),
+        explode(',', $normalizedValue)
+    );
+
+    return in_array($targetKey, $values, true);
+}
+
 $sql = "INSERT INTO {$tableNameSql} (
     date_recorded,
     transaction_date,
     branch,
+    dealer,
     department,
     module,
     user_name,
@@ -146,6 +164,7 @@ $sql = "INSERT INTO {$tableNameSql} (
     :date_recorded,
     :transaction_date,
     :branch,
+    :dealer,
     :department,
     :module,
     :user_name,
@@ -173,6 +192,7 @@ if ($amount === "") {
 }
 
 $optionFields = [
+    "dealer",
     "department",
     "module",
     "classification",
@@ -206,10 +226,24 @@ foreach ($uppercaseFields as $field) {
 $normalizedText["processed_type"] = normalizeMultiSelectInput($_POST["processed_type"] ?? []);
 $normalizedText["status"] = normalizeMultiSelectInput($_POST["status"] ?? []);
 
+if (
+    containsNormalizedMultiSelectValue($normalizedText["processed_type"], "Data Correction")
+    && $normalizedText["user_name"] === ""
+) {
+    $redirectQuery = http_build_query([
+        "company" => $company["key"],
+        "error" => "data_correction_user_required",
+    ]);
+
+    header("Location: index.php?" . $redirectQuery . "#record-form");
+    exit;
+}
+
 $stmt->execute([
     ":date_recorded" => $_POST["date_recorded"] ?? null,
     ":transaction_date" => $_POST["transaction_date"] ?? null,
     ":branch" => $normalizedText["branch"],
+    ":dealer" => $normalizedText["dealer"],
     ":department" => $normalizedText["department"],
     ":module" => $normalizedText["module"],
     ":user_name" => $normalizedText["user_name"],

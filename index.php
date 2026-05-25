@@ -12,6 +12,7 @@ ensureMonitoringTable($pdo, $company);
 
 $filterOptions = [
     "branch" => $branchOptions,
+    "dealer" => $dealerOptions,
     "department" => $departmentOptions,
     "module" => $moduleOptions,
     "status" => $statusOptions,
@@ -24,6 +25,7 @@ $totalRecords = countMonitoringRecords($pdo, $tableNameSql, $filters);
 $pagination = buildPaginationState($filters["page"], $filters["per_page"], $totalRecords);
 $filters["page"] = $pagination["page"];
 $records = fetchMonitoringRecords($pdo, $tableNameSql, $filters, $pagination["limit"], $pagination["offset"]);
+$records = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, $records);
 
 $listQueryParams = buildMonitoringListQueryParams($company["key"], $filters);
 $mitsubishiUrl = buildUrl("index.php", $listQueryParams, [
@@ -43,6 +45,7 @@ $clearFiltersUrl = buildUrl("index.php", ["company" => $company["key"]]);
 $exportUrl = buildUrl("export_excel.php", buildMonitoringListQueryParams($company["key"], $filters, false));
 $activeFilterBadges = buildActiveFilterBadges($filters);
 $savedMessage = "Record successfully saved to the " . $company["table_name"] . " table.";
+$validationErrorMessage = resolveMonitoringValidationErrorMessage($_GET["error"] ?? null);
 ?>
 <!DOCTYPE html>
 <html lang="en">

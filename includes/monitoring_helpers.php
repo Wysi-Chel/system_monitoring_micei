@@ -4,6 +4,38 @@ function e($value): string
     return htmlspecialchars((string) $value, ENT_QUOTES, "UTF-8");
 }
 
+function uppercaseText(string $value): string
+{
+    return function_exists("mb_strtoupper")
+        ? mb_strtoupper($value, "UTF-8")
+        : strtoupper($value);
+}
+
+function containsMultiValueText(?string $value, string $target): bool
+{
+    $normalizedValue = trim((string) $value);
+    $normalizedTarget = trim($target);
+    if ($normalizedValue === "" || $normalizedTarget === "") {
+        return false;
+    }
+
+    $targetKey = uppercaseText($normalizedTarget);
+    $values = array_map(
+        static fn(string $item): string => uppercaseText(trim($item)),
+        explode(",", $normalizedValue)
+    );
+
+    return in_array($targetKey, $values, true);
+}
+
+function resolveMonitoringValidationErrorMessage(?string $errorCode): ?string
+{
+    return match (trim((string) $errorCode)) {
+        "data_correction_user_required" => "USER IS REQUIRED WHEN PROCESSED TYPE INCLUDES DATA CORRECTION.",
+        default => null,
+    };
+}
+
 function renderOptionButtons(string $name, array $options, bool $allowMultiple = false): void
 {
     $groupRole = $allowMultiple ? "group" : "radiogroup";
@@ -17,10 +49,11 @@ function renderOptionButtons(string $name, array $options, bool $allowMultiple =
         $safeId = e($id);
         $safeName = e($inputName);
         $safeOption = e($option);
+        $displayOption = e(uppercaseText((string) $option));
 
         echo '<label class="option-button" for="' . $safeId . '">';
         echo '<input type="' . $inputType . '" id="' . $safeId . '" name="' . $safeName . '" value="' . $safeOption . '">';
-        echo '<span>' . $safeOption . '</span>';
+        echo '<span>' . $displayOption . '</span>';
         echo '</label>';
     }
 
@@ -52,9 +85,11 @@ function buildMonitoringListQueryParams(string $companyKey, array $filters, bool
 
     $fieldMap = [
         "search" => "q",
+        "month" => "month",
         "date_from" => "date_from",
         "date_to" => "date_to",
         "branch" => "branch",
+        "dealer" => "dealer",
         "department" => "department",
         "module" => "module",
         "status" => "status",
@@ -128,6 +163,16 @@ function formatDisplayTimestamp(?string $value): string
     return $timestamp === false ? $value : date("n/j/Y g:i A", $timestamp);
 }
 
+function formatDisplayMonth(?string $value): string
+{
+    if (!$value) {
+        return "";
+    }
+
+    $month = DateTimeImmutable::createFromFormat("Y-m", (string) $value);
+    return $month && $month->format("Y-m") === $value ? $month->format("F Y") : (string) $value;
+}
+
 function getLockedTicketStatuses(): array
 {
     return ["Resolved", "Closed"];
@@ -191,6 +236,7 @@ function formatTicketAgeValue(array $row): string
 function formatSummaryValue(array $column, array $row): string
 {
     $value = $row[$column["key"]] ?? "";
+    $uppercaseSummaryKeys = ["processed_type", "classification", "status", "offense", "disciplinary_action", "action_taken"];
 
     switch ($column["format"] ?? "text") {
         case "date":
@@ -210,8 +256,50 @@ function formatSummaryValue(array $column, array $row): string
             return formatTicketAgeValue($row);
 
         default:
-            return (string) $value;
+            $textValue = (string) $value;
+
+            if (in_array((string) ($column["key"] ?? ""), $uppercaseSummaryKeys, true)) {
+                return uppercaseText($textValue);
+            }
+
+            return $textValue;
     }
+}
+
+function resolveDataCorrectionDisciplinaryAction(int $count): array
+{
+    if ($count <= 0) {
+        return [
+            "data_correction_alert" => "",
+            "disciplinary_action" => "",
+        ];
+    }
+
+    $alertMessage = "Data Correction Errors: {$count}";
+
+    if ($count > 3) {
+        return [
+            "data_correction_alert" => $alertMessage . " - Exceeded 3-error limit",
+            "disciplinary_action" => "Written Memo",
+        ];
+    }
+
+    if ($count === 3) {
+        return [
+            "data_correction_alert" => $alertMessage . " - Reached 3-error limit",
+            "disciplinary_action" => "Vocal Memo",
+        ];
+    }
+
+    return [
+        "data_correction_alert" => $alertMessage,
+        "disciplinary_action" => "",
+    ];
+}
+
+function getMonitoringActionOptions(): array
+{
+    return ["Vocal Memo", "Written Memo"];
 }
 
 function getSummaryHeaders(array $summaryColumns): array
@@ -226,10 +314,18 @@ function buildActiveFilterBadges(array $filters, ?string $fixedBranch = null): a
 {
     $badges = [];
 
+    if (($filters["month"] ?? "") !== "") {
+        $badges[] = "Month: " . formatDisplayMonth($filters["month"]);
+    }
+
     if ($fixedBranch !== null) {
         $badges[] = "Branch: " . $fixedBranch;
     } elseif ($filters["branch"] !== "") {
         $badges[] = "Branch: " . $filters["branch"];
+    }
+
+    if (($filters["dealer"] ?? "") !== "") {
+        $badges[] = "Dealers: " . $filters["dealer"];
     }
 
     if ($filters["status"] !== "") {

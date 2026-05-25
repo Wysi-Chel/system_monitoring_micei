@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS `micei_system_monitoring` (
     date_recorded DATE NOT NULL,
     transaction_date DATE NOT NULL,
     branch VARCHAR(100),
+    dealer VARCHAR(100),
     department VARCHAR(100),
     module VARCHAR(100),
     user_name VARCHAR(150),
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS `micei_system_monitoring` (
     ticket VARCHAR(150),
     status VARCHAR(100),
     offense VARCHAR(150),
+    action_taken VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -31,6 +33,7 @@ CREATE TABLE IF NOT EXISTS `ntr_system_monitoring` (
     date_recorded DATE NOT NULL,
     transaction_date DATE NOT NULL,
     branch VARCHAR(100),
+    dealer VARCHAR(100),
     department VARCHAR(100),
     module VARCHAR(100),
     user_name VARCHAR(150),
@@ -48,6 +51,7 @@ CREATE TABLE IF NOT EXISTS `ntr_system_monitoring` (
     ticket VARCHAR(150),
     status VARCHAR(100),
     offense VARCHAR(150),
+    action_taken VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

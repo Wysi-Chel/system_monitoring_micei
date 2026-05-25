@@ -1,6 +1,12 @@
 <section class="card">
     <h2>Encode New Record</h2>
 
+    <?php if (!empty($validationErrorMessage)): ?>
+    <div class="form-alert form-alert-error" role="alert">
+        <?= e($validationErrorMessage) ?>
+    </div>
+    <?php endif; ?>
+
     <form action="save.php" method="POST" id="record-form">
         <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
 
@@ -20,14 +26,21 @@
 
         <section class="form-section">
             <div class="selector-grid<?= $showBranchSelector ? " triple" : "" ?>">
-                <?php if ($showBranchSelector): ?>
-                <div class="selector-field selector-field-medium">
-                    <label>Branch</label>
-                    <?php renderOptionButtons("branch", $branchOptions); ?>
+                <div class="selector-field selector-field-medium selector-field-stack">
+                    <?php if ($showBranchSelector): ?>
+                    <div class="selector-subfield">
+                        <label>Branch</label>
+                        <?php renderOptionButtons("branch", $branchOptions); ?>
+                    </div>
+                    <?php else: ?>
+                    <input type="hidden" name="branch" value="<?= e($fixedBranch) ?>">
+                    <?php endif; ?>
+
+                    <div class="selector-subfield">
+                        <label>Dealers</label>
+                        <?php renderOptionButtons("dealer", $dealerOptions); ?>
+                    </div>
                 </div>
-                <?php else: ?>
-                <input type="hidden" name="branch" value="<?= e($fixedBranch) ?>">
-                <?php endif; ?>
 
                 <div class="selector-field selector-field-medium">
                     <label>Department</label>
@@ -90,9 +103,14 @@
                     <input type="text" id="reason" name="reason">
                 </div>
 
-                <div class="field field-span-2">
-                    <label for="remarks">Remarks</label>
-                    <input type="text" id="remarks" name="remarks">
+                <div class="field">
+                    <label for="system-admin">System Admin</label>
+                    <input type="text" id="system-admin" name="system_admin">
+                </div>
+
+                <div class="field">
+                    <label for="offense">Offense</label>
+                    <input type="text" id="offense" name="offense">
                 </div>
 
                 <div class="field">
@@ -105,14 +123,9 @@
                     <input type="text" id="processed-by" name="processed_by" placeholder="e.g., ITA">
                 </div>
 
-                <div class="field">
-                    <label for="system-admin">System Admin</label>
-                    <input type="text" id="system-admin" name="system_admin">
-                </div>
-
-                <div class="field">
-                    <label for="offense">Offense</label>
-                    <input type="text" id="offense" name="offense">
+                <div class="field field-span-2">
+                    <label for="remarks">Remarks</label>
+                    <input type="text" id="remarks" name="remarks">
                 </div>
             </div>
         </section>

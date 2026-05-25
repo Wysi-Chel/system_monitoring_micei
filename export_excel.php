@@ -9,6 +9,7 @@ ensureMonitoringTable($pdo, $company);
 $tableNameSql = quoteMysqlIdentifier($company["table_name"]);
 $filterOptions = [
     "branch" => $branchOptions,
+    "dealer" => $dealerOptions,
     "department" => $departmentOptions,
     "module" => $moduleOptions,
     "status" => $statusOptions,
@@ -16,6 +17,7 @@ $filterOptions = [
 ];
 $filters = buildMonitoringFilters($_GET, $company, $filterOptions);
 $records = fetchMonitoringRecords($pdo, $tableNameSql, $filters, null, 0, "ASC");
+$records = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, $records);
 $headers = getSummaryHeaders($summaryColumns);
 
 $rows = [];
@@ -24,6 +26,11 @@ foreach ($records as $row) {
 
     foreach ($summaryColumns as $column) {
         $value = $row[$column["key"]] ?? "";
+
+        if (($column["format"] ?? "text") === "action_control") {
+            $rowValues[] = "";
+            continue;
+        }
 
         if (($column["format"] ?? "text") === "date") {
             $rowValues[] = formatDateExcel($value);

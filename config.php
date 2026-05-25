@@ -37,7 +37,6 @@ $companyConfigs = [
         "logo_type" => "image/png",
         "logo_alt" => "Hyundai Company",
         "export_slug" => "ntr",
-        "fixed_branch" => "GSC",
     ],
 ];
 
@@ -97,6 +96,22 @@ function countMysqlTableRows(PDO $pdo, string $tableName): int
     return (int) $pdo->query("SELECT COUNT(*) FROM " . quoteMysqlIdentifier($tableName))->fetchColumn();
 }
 
+function fetchMysqlTableColumnNames(PDO $pdo, string $tableName): array
+{
+    $stmt = $pdo->query("SHOW COLUMNS FROM " . quoteMysqlIdentifier($tableName));
+    $columns = [];
+
+    while ($column = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        if (!isset($column["Field"])) {
+            continue;
+        }
+
+        $columns[] = (string) $column["Field"];
+    }
+
+    return $columns;
+}
+
 function renameLegacyTableIfNeeded(PDO $pdo, $legacyTableNames, string $targetTableName): void
 {
     foreach (normalizeLegacyTableNames($legacyTableNames) as $legacyTableName) {
@@ -136,9 +151,26 @@ function syncLegacyTableIntoTargetIfNeeded(PDO $pdo, $legacyTableNames, string $
         }
 
         if ($targetRowCount === 0) {
+            $targetColumns = fetchMysqlTableColumnNames($pdo, $targetTableName);
+            $legacyColumns = fetchMysqlTableColumnNames($pdo, $legacyTableName);
+            $sharedColumns = array_values(array_intersect($targetColumns, $legacyColumns));
+
+            if ($sharedColumns === []) {
+                continue;
+            }
+
+            $columnListSql = implode(
+                ", ",
+                array_map(
+                    static fn(string $columnName): string => quoteMysqlIdentifier($columnName),
+                    $sharedColumns
+                )
+            );
+
             $pdo->exec(
                 "INSERT INTO " . quoteMysqlIdentifier($targetTableName)
-                . " SELECT * FROM " . quoteMysqlIdentifier($legacyTableName)
+                . " (" . $columnListSql . ") SELECT " . $columnListSql
+                . " FROM " . quoteMysqlIdentifier($legacyTableName)
             );
             $pdo->exec("DROP TABLE " . quoteMysqlIdentifier($legacyTableName));
             $targetRowCount = $legacyRowCount;
@@ -160,6 +192,7 @@ function ensureMonitoringTable(PDO $pdo, array $company): void
             date_recorded DATE NOT NULL,
             transaction_date DATE NOT NULL,
             branch VARCHAR(100),
+            dealer VARCHAR(100),
             department VARCHAR(100),
             module VARCHAR(100),
             user_name VARCHAR(150),
@@ -177,10 +210,25 @@ function ensureMonitoringTable(PDO $pdo, array $company): void
             ticket VARCHAR(150),
             status VARCHAR(100),
             offense VARCHAR(150),
+            action_taken VARCHAR(100),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )"
     );
+    ensureMysqlTableColumn($pdo, $tableNameSql, "dealer", "dealer VARCHAR(100) AFTER branch");
+    ensureMysqlTableColumn($pdo, $tableNameSql, "action_taken", "action_taken VARCHAR(100) AFTER offense");
     syncLegacyTableIntoTargetIfNeeded($pdo, $company["legacy_table_names"] ?? [], $company["table_name"]);
+    backfillMonitoringDealerValues($pdo, $tableNameSql);
+}
+
+function backfillMonitoringDealerValues(PDO $pdo, string $tableNameSql): void
+{
+    $pdo->exec(
+        "UPDATE {$tableNameSql}
+         SET dealer = UPPER(TRIM(branch)),
+             branch = 'GSC'
+         WHERE COALESCE(TRIM(dealer), '') = ''
+           AND UPPER(TRIM(branch)) IN ('MGSC', 'NGSC', 'MKC')"
+    );
 }
 
 function ensureMysqlTableColumn(PDO $pdo, string $tableNameSql, string $columnName, string $definitionSql): void

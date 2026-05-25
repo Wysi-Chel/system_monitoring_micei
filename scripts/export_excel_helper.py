@@ -21,7 +21,7 @@ LIGHT_BORDER = Border(left=THIN_GRID, right=THIN_GRID, top=THIN_GRID, bottom=THI
 HEADER_BORDER = Border(left=THIN_GRID, right=THIN_GRID, top=THIN_GRID, bottom=HEADER_BOTTOM)
 
 DATE_HEADERS = {"Date", "Transaction Date", "Date Created"}
-CENTER_HEADERS = {"Date", "Transaction Date", "Branch", "Department", "Module", "Amount", "Status"}
+CENTER_HEADERS = {"Date", "Transaction Date", "Branch", "Dealers", "Department", "Module", "Amount", "Status", "Alert", "Action"}
 
 
 def sanitize_sheet_name(sheet_name: str) -> str:
