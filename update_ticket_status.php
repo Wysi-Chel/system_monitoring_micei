@@ -21,6 +21,7 @@ $redirectParams = [
 
 $filterSearch = trim((string) ($_POST["filter_search"] ?? ""));
 $filterBranch = trim((string) ($_POST["filter_branch"] ?? ""));
+$filterDealer = trim((string) ($_POST["filter_dealer"] ?? ""));
 $filterStatus = trim((string) ($_POST["filter_status"] ?? ""));
 $filterPerPage = trim((string) ($_POST["filter_per_page"] ?? ""));
 $filterPage = trim((string) ($_POST["filter_page"] ?? ""));
@@ -31,6 +32,10 @@ if ($filterSearch !== "") {
 
 if ($filterBranch !== "") {
     $redirectParams["branch"] = $filterBranch;
+}
+
+if ($filterDealer !== "") {
+    $redirectParams["dealer"] = $filterDealer;
 }
 
 if ($filterStatus !== "") {

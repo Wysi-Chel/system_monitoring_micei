@@ -800,7 +800,7 @@ button,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 40px;
+    min-width: 78px;
     padding: 6px 8px;
     border: 1px solid var(--border);
     background: var(--surface-soft);
@@ -808,6 +808,7 @@ button,
     font-size: 14px;
     font-weight: bold;
     line-height: 1;
+    white-space: nowrap;
 }
 
 .active-filters {

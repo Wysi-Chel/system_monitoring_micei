@@ -30,9 +30,12 @@ $companyConfigs = [
         "key" => "hyundai",
         "company_name" => "Hyundai",
         "system_name" => "NTR System Monitoring",
-        "has_ticket_monitoring" => false,
+        "has_ticket_monitoring" => true,
         "table_name" => "ntr_system_monitoring",
+        "ticket_table_name" => "ntr_ticket_monitoring",
         "legacy_table_names" => ["NTR system monitoring", "ntr system monitoring"],
+        "legacy_ticket_table_names" => ["NTR ticket monitoring", "ntr ticket monitoring"],
+        "legacy_resolved_ticket_table_names" => ["NTR resolved ticket monitoring", "ntr resolved ticket monitoring"],
         "logo_path" => "assets/images/hyundai_logo.png",
         "logo_type" => "image/png",
         "logo_alt" => "Hyundai Company",
@@ -257,6 +260,7 @@ function ensureTicketMonitoringTable(PDO $pdo, array $company): void
         "CREATE TABLE IF NOT EXISTS {$tableNameSql} (
             id INT AUTO_INCREMENT PRIMARY KEY,
             branch VARCHAR(100),
+            dealer VARCHAR(100),
             module VARCHAR(100),
             ticket_number VARCHAR(150) NOT NULL,
             ticket_description TEXT,
@@ -268,8 +272,21 @@ function ensureTicketMonitoringTable(PDO $pdo, array $company): void
         )"
     );
 
-    ensureMysqlTableColumn($pdo, $tableNameSql, "module", "module VARCHAR(100) AFTER branch");
+    ensureMysqlTableColumn($pdo, $tableNameSql, "dealer", "dealer VARCHAR(100) AFTER branch");
+    ensureMysqlTableColumn($pdo, $tableNameSql, "module", "module VARCHAR(100) AFTER dealer");
     syncLegacyTableIntoTargetIfNeeded($pdo, $company["legacy_ticket_table_names"] ?? [], $company["ticket_table_name"]);
+    backfillTicketMonitoringDealerValues($pdo, $tableNameSql);
+}
+
+function backfillTicketMonitoringDealerValues(PDO $pdo, string $tableNameSql): void
+{
+    $pdo->exec(
+        "UPDATE {$tableNameSql}
+         SET dealer = UPPER(TRIM(branch)),
+             branch = 'GSC'
+         WHERE COALESCE(TRIM(dealer), '') = ''
+           AND UPPER(TRIM(branch)) IN ('MGSC', 'NGSC', 'MKC')"
+    );
 }
 
 try {

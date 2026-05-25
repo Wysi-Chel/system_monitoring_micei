@@ -35,6 +35,7 @@ function normalizeTicketDate(?string $value): ?string
 }
 
 $branch = $company["fixed_branch"] ?? normalizeTicketField($_POST["branch"] ?? "", true);
+$dealer = normalizeAllowedFilter($_POST["dealer"] ?? "", $dealerOptions);
 $module = normalizeAllowedFilter($_POST["module"] ?? "", $moduleOptions);
 $ticketNumber = normalizeTicketField($_POST["ticket_number"] ?? "", true);
 $ticketDescription = normalizeTicketField($_POST["ticket_description"] ?? "");
@@ -47,6 +48,7 @@ $resolvedAt = isLockedTicketStatus($ticketStatus)
 
 $sql = "INSERT INTO {$ticketTableNameSql} (
     branch,
+    dealer,
     module,
     ticket_number,
     ticket_description,
@@ -56,6 +58,7 @@ $sql = "INSERT INTO {$ticketTableNameSql} (
     resolved_at
 ) VALUES (
     :branch,
+    :dealer,
     :module,
     :ticket_number,
     :ticket_description,
@@ -68,6 +71,7 @@ $sql = "INSERT INTO {$ticketTableNameSql} (
 $stmt = $pdo->prepare($sql);
 $stmt->execute([
     ":branch" => $branch,
+    ":dealer" => $dealer,
     ":module" => $module,
     ":ticket_number" => $ticketNumber,
     ":ticket_description" => $ticketDescription,

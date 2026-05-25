@@ -86,6 +86,7 @@ function buildTicketMonitoringFilters(array $input, array $company, array $filte
     $filters = [
         "search" => normalizeSearchFilter($input["q"] ?? ""),
         "branch" => "",
+        "dealer" => normalizeAllowedFilter($input["dealer"] ?? "", $filterOptions["dealer"] ?? []),
         "ticket_status" => normalizeAllowedFilter($input["status"] ?? "", $filterOptions["status"] ?? []),
         "page" => normalizePositiveInt($input["page"] ?? 1, 1),
         "per_page" => normalizePositiveInt($input["per_page"] ?? 25, 25),
@@ -203,6 +204,7 @@ function buildTicketMonitoringWhereClause(array $filters, array &$bindings): str
         $searchValue = "%" . escapeLikeTerm($filters["search"]) . "%";
         $searchColumns = [
             "ticket_number",
+            "dealer",
             "module",
             "ticket_description",
             "created_by",
@@ -222,6 +224,11 @@ function buildTicketMonitoringWhereClause(array $filters, array &$bindings): str
     if (($filters["branch"] ?? "") !== "") {
         $conditions[] = "branch = :branch";
         $bindings["branch"] = $filters["branch"];
+    }
+
+    if (($filters["dealer"] ?? "") !== "") {
+        $conditions[] = "dealer = :dealer";
+        $bindings["dealer"] = $filters["dealer"];
     }
 
     if (($filters["ticket_status"] ?? "") !== "") {

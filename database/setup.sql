@@ -58,6 +58,21 @@ CREATE TABLE IF NOT EXISTS `ntr_system_monitoring` (
 CREATE TABLE IF NOT EXISTS `micei_ticket_monitoring` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     branch VARCHAR(100),
+    dealer VARCHAR(100),
+    module VARCHAR(100),
+    ticket_number VARCHAR(150) NOT NULL,
+    ticket_description TEXT,
+    date_created DATE NOT NULL,
+    created_by VARCHAR(150),
+    ticket_status VARCHAR(100) NOT NULL,
+    resolved_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS `ntr_ticket_monitoring` (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    branch VARCHAR(100),
+    dealer VARCHAR(100),
     module VARCHAR(100),
     ticket_number VARCHAR(150) NOT NULL,
     ticket_description TEXT,

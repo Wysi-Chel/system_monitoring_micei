@@ -236,7 +236,7 @@ function formatTicketAgeValue(array $row): string
 function formatSummaryValue(array $column, array $row): string
 {
     $value = $row[$column["key"]] ?? "";
-    $uppercaseSummaryKeys = ["processed_type", "classification", "status", "offense", "disciplinary_action", "action_taken"];
+    $uppercaseSummaryKeys = ["user_name", "client_name", "reason", "processed_type", "classification", "status", "offense", "disciplinary_action", "action_taken"];
 
     switch ($column["format"] ?? "text") {
         case "date":
@@ -347,6 +347,10 @@ function buildTicketFilterBadges(array $filters, ?string $fixedBranch = null): a
         $badges[] = "Branch: " . $fixedBranch;
     } elseif (($filters["branch"] ?? "") !== "") {
         $badges[] = "Branch: " . $filters["branch"];
+    }
+
+    if (($filters["dealer"] ?? "") !== "") {
+        $badges[] = "Dealers: " . $filters["dealer"];
     }
 
     if (($filters["ticket_status"] ?? "") !== "") {

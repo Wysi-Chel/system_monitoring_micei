@@ -40,11 +40,13 @@ $summaryColumns = [
 $ticketMonitoringColumns = [
     ["key" => "date_created", "label" => "Date Created", "format" => "date"],
     ["key" => "branch", "label" => "Branch", "format" => "text"],
+    ["key" => "dealer", "label" => "Dealers", "format" => "text"],
     ["key" => "module", "label" => "Module", "format" => "text"],
     ["key" => "ticket_number", "label" => "Ticket Number", "format" => "text"],
     ["key" => "ticket_description", "label" => "Description", "format" => "text"],
     ["key" => "created_by", "label" => "Created By", "format" => "text"],
     ["key" => "ticket_age", "label" => "Ticket Age", "format" => "ticket_age"],
     ["key" => "created_at", "label" => "Encoded At", "format" => "timestamp"],
+    ["key" => "resolved_at", "label" => "Date Resolved", "format" => "date"],
     ["key" => "ticket_status", "label" => "Status", "format" => "text"],
 ];

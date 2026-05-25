@@ -16,6 +16,7 @@ ensureTicketMonitoringTable($pdo, $company);
 
 $filterOptions = [
     "branch" => $branchOptions,
+    "dealer" => $dealerOptions,
     "status" => $ticketStatusOptions,
     "per_page" => $rowsPerPageOptions,
 ];
@@ -43,12 +44,13 @@ $ticketSummaryAnchor = "#ticket-summary";
 $headerKicker = $company["company_name"];
 $headerTitle = "Ticket Monitoring";
 $headerDescription = "Encode and track ticket records for " . $company["company_name"] . ". The ticket age is calculated automatically until the ticket is resolved.";
-$showCompanySwitch = false;
+$showCompanySwitch = true;
 $paginationPages = buildPaginationPages($pagination["page"], $pagination["total_pages"]);
 $savedMessage = isset($_GET["updated"])
     ? "Ticket status successfully updated."
     : "Ticket monitoring record successfully saved to the " . $company["ticket_table_name"] . " table.";
 $ticketFormDefaults = [
+    "dealer" => "",
     "module" => "",
     "ticket_number" => trim((string) ($_GET["ticket_number"] ?? $_GET["q"] ?? "")),
     "ticket_description" => "",
@@ -107,6 +109,16 @@ $ticketFormDefaults = [
                         <input type="hidden" name="branch" value="<?= e($fixedBranch) ?>">
                     </div>
                     <?php endif; ?>
+
+                    <div class="field">
+                        <label for="ticket-form-dealer">Dealers</label>
+                        <select id="ticket-form-dealer" name="dealer" required>
+                            <option value="">Select dealer</option>
+                            <?php foreach ($dealerOptions as $option): ?>
+                            <option value="<?= e($option) ?>"<?= $ticketFormDefaults["dealer"] === $option ? " selected" : "" ?>><?= e($option) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
                     <div class="field">
                         <label for="ticket-number">Ticket Number</label>
@@ -178,6 +190,16 @@ $ticketFormDefaults = [
                 <?php endif; ?>
 
                 <div class="field">
+                    <label for="ticket-dealer">Dealers</label>
+                    <select id="ticket-dealer" name="dealer">
+                        <option value="">All dealers</option>
+                        <?php foreach ($dealerOptions as $option): ?>
+                        <option value="<?= e($option) ?>"<?= ($filters["dealer"] ?? "") === $option ? " selected" : "" ?>><?= e($option) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="field">
                     <label for="ticket-status">Status</label>
                     <select id="ticket-status" name="status">
                         <option value="">All statuses</option>
@@ -245,13 +267,14 @@ $ticketFormDefaults = [
                                 <?php endforeach; ?>
                                 <td class="table-action-cell">
                                     <?php if (isLockedTicketStatus($row["ticket_status"] ?? "")): ?>
-                                        <span class="row-lock-label" aria-label="Locked" title="Locked">&#128274;</span>
+                                        
                                     <?php else: ?>
                                         <form action="update_ticket_status.php" method="POST" class="ticket-status-form">
                                             <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
                                             <input type="hidden" name="ticket_id" value="<?= e($row["id"] ?? "") ?>">
                                             <input type="hidden" name="filter_search" value="<?= e($filters["search"]) ?>">
                                             <input type="hidden" name="filter_branch" value="<?= e($filters["branch"]) ?>">
+                                            <input type="hidden" name="filter_dealer" value="<?= e($filters["dealer"] ?? "") ?>">
                                             <input type="hidden" name="filter_status" value="<?= e($filters["ticket_status"]) ?>">
                                             <input type="hidden" name="filter_per_page" value="<?= e($filters["per_page"]) ?>">
                                             <input type="hidden" name="filter_page" value="<?= e($pagination["page"]) ?>">
