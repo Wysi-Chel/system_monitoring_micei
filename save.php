@@ -1,5 +1,6 @@
 <?php
 require "config.php";
+require __DIR__ . "/includes/monitoring_options.php";
 
 $company = resolveCompanyConfig($_POST["company"] ?? $_GET["company"] ?? null, $companyConfigs);
 ensureMonitoringTable($pdo, $company);
@@ -95,6 +96,12 @@ function uppercaseInput(?string $value): string
 
     $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
     return mb_strtoupper($value, 'UTF-8');
+}
+
+function normalizeAllowedOptionValue(?string $value, array $allowedOptions): string
+{
+    $value = trim((string) $value);
+    return in_array($value, $allowedOptions, true) ? $value : '';
 }
 
 function normalizeMultiSelectInput($value): string
@@ -194,7 +201,6 @@ if ($amount === "") {
 $optionFields = [
     "dealer",
     "department",
-    "module",
     "classification",
 ];
 
@@ -217,6 +223,7 @@ foreach ($optionFields as $field) {
     $normalizedText[$field] = sentenceCaseInput($_POST[$field] ?? "");
 }
 
+$normalizedText["module"] = normalizeAllowedOptionValue($_POST["module"] ?? "", $moduleOptions);
 $normalizedText["branch"] = sentenceCaseInput($company["fixed_branch"] ?? ($_POST["branch"] ?? ""));
 
 foreach ($uppercaseFields as $field) {

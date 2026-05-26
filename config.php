@@ -221,6 +221,7 @@ function ensureMonitoringTable(PDO $pdo, array $company): void
     ensureMysqlTableColumn($pdo, $tableNameSql, "action_taken", "action_taken VARCHAR(100) AFTER offense");
     syncLegacyTableIntoTargetIfNeeded($pdo, $company["legacy_table_names"] ?? [], $company["table_name"]);
     backfillMonitoringDealerValues($pdo, $tableNameSql);
+    backfillMonitoringModuleValues($pdo, $tableNameSql);
 }
 
 function backfillMonitoringDealerValues(PDO $pdo, string $tableNameSql): void
@@ -231,6 +232,17 @@ function backfillMonitoringDealerValues(PDO $pdo, string $tableNameSql): void
              branch = 'GSC'
          WHERE COALESCE(TRIM(dealer), '') = ''
            AND UPPER(TRIM(branch)) IN ('MGSC', 'NGSC', 'MKC')"
+    );
+}
+
+function backfillMonitoringModuleValues(PDO $pdo, string $tableNameSql): void
+{
+    $pdo->exec(
+        "UPDATE {$tableNameSql}
+         SET module = 'All Modules'
+         WHERE module IS NULL
+            OR TRIM(module) = ''
+            OR UPPER(TRIM(module)) IN ('ALL MODULE', 'ALL MODULES')"
     );
 }
 

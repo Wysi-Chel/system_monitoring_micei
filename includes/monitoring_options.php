@@ -2,8 +2,8 @@
 $branchOptions = ["GSC", "GLA", "KID"];
 $dealerOptions = ["MGSC", "NGSC", "MKC"];
 $departmentOptions = ["Accounting", "Sales", "Service", "Parts", "BNC", "CNC", "Manila", "BRP"];
-$moduleOptions = ["AMIS", "CMIS", "SMIS", "PMIS", "CSMS"];
-$ticketModuleOptions = [...$moduleOptions, "All Modules"];
+$moduleOptions = ["AMIS", "CMIS", "SMIS", "PMIS", "CSMS", "All Modules"];
+$ticketModuleOptions = $moduleOptions;
 $classificationOptions = ["User Error", "System Error", "Others"];
 $processedTypeOptions = ["Cancellation", "Unposting", "Void", "Data Correction", "Others"];
 $statusOptions = ["Pending", "Cancelled", "Unposted", "Voided"];
