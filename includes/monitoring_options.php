@@ -7,6 +7,7 @@ $ticketModuleOptions = $moduleOptions;
 $classificationOptions = ["User Error", "System Error", "Others"];
 $processedTypeOptions = ["Cancellation", "Unposting", "Void", "Data Correction", "Others"];
 $statusOptions = ["Pending", "Cancelled", "Unposted", "Voided"];
+$summaryStatusOptions = [...$statusOptions, "Done"];
 $ticketStatusOptions = ["Open", "In Progress", "On Hold", "Resolved"];
 $rowsPerPageOptions = [25, 50, 100];
 

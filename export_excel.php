@@ -12,7 +12,7 @@ $filterOptions = [
     "dealer" => $dealerOptions,
     "department" => $departmentOptions,
     "module" => $moduleOptions,
-    "status" => $statusOptions,
+    "status" => $summaryStatusOptions,
     "per_page" => $rowsPerPageOptions,
 ];
 $filters = buildMonitoringFilters($_GET, $company, $filterOptions);

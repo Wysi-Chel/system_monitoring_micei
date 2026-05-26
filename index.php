@@ -15,7 +15,7 @@ $filterOptions = [
     "dealer" => $dealerOptions,
     "department" => $departmentOptions,
     "module" => $moduleOptions,
-    "status" => $statusOptions,
+    "status" => $summaryStatusOptions,
     "per_page" => $rowsPerPageOptions,
 ];
 

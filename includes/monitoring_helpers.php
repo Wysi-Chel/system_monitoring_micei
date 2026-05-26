@@ -302,6 +302,16 @@ function getMonitoringActionOptions(): array
     return ["Vocal Memo", "Written Memo"];
 }
 
+function getMonitoringDoneStatus(): string
+{
+    return "Done";
+}
+
+function canMarkMonitoringRecordDone(?string $status): bool
+{
+    return uppercaseText(trim((string) $status)) === uppercaseText("Pending");
+}
+
 function getSummaryHeaders(array $summaryColumns): array
 {
     return array_map(

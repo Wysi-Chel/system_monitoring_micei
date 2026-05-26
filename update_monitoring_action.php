@@ -11,6 +11,7 @@ $tableNameSql = quoteMysqlIdentifier($company["table_name"]);
 $recordId = is_numeric($_POST["record_id"] ?? null) ? (int) $_POST["record_id"] : 0;
 $actionTaken = trim((string) ($_POST["action_taken"] ?? ""));
 $allowedActions = getMonitoringActionOptions();
+$doneStatus = getMonitoringDoneStatus();
 
 $redirectParams = [
     "company" => $company["key"],
@@ -42,18 +43,22 @@ if ($filterPage !== "" && $filterPage !== "1") {
     $redirectParams["page"] = $filterPage;
 }
 
-if ($recordId > 0 && in_array($actionTaken, $allowedActions, true)) {
+if ($recordId > 0 && $actionTaken !== "") {
     $record = fetchMonitoringRecordById($pdo, $tableNameSql, $recordId);
 
     if ($record !== null) {
-        $enrichedRecord = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, [$record])[0] ?? null;
+        if ($actionTaken === $doneStatus && canMarkMonitoringRecordDone($record["status"] ?? "")) {
+            updateMonitoringRecordStatus($pdo, $tableNameSql, $recordId, $doneStatus);
+        } elseif (in_array($actionTaken, $allowedActions, true)) {
+            $enrichedRecord = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, [$record])[0] ?? null;
 
-        if (
-            $enrichedRecord !== null
-            && containsMultiValueText((string) ($enrichedRecord["processed_type"] ?? ""), "Data Correction")
-            && (int) ($enrichedRecord["data_correction_offense_count"] ?? 0) >= 3
-        ) {
-            updateMonitoringRecordActionTaken($pdo, $tableNameSql, $recordId, $actionTaken);
+            if (
+                $enrichedRecord !== null
+                && containsMultiValueText((string) ($enrichedRecord["processed_type"] ?? ""), "Data Correction")
+                && (int) ($enrichedRecord["data_correction_offense_count"] ?? 0) >= 3
+            ) {
+                updateMonitoringRecordActionTaken($pdo, $tableNameSql, $recordId, $actionTaken);
+            }
         }
     }
 }

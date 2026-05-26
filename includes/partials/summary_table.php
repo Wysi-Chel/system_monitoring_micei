@@ -1,6 +1,7 @@
 <?php $paginationPages = buildPaginationPages($pagination["page"], $pagination["total_pages"]); ?>
 <?php $summaryAnchor = "#summary-section"; ?>
 <?php $monitoringActionOptions = getMonitoringActionOptions(); ?>
+<?php $monitoringDoneStatus = getMonitoringDoneStatus(); ?>
 <section class="card" id="summary-section">
     <div class="summary-header">
         <div>
@@ -44,7 +45,7 @@
                 <label for="filter-status">Status</label>
                 <select id="filter-status" name="status">
                     <option value="">All statuses</option>
-                    <?php foreach ($statusOptions as $option): ?>
+                    <?php foreach ($summaryStatusOptions as $option): ?>
                     <option value="<?= e($option) ?>"<?= $filters["status"] === $option ? " selected" : "" ?>><?= e($option) ?></option>
                     <?php endforeach; ?>
                 </select>
@@ -91,8 +92,23 @@
                         <tr class="<?= ((int) ($row["data_correction_offense_count"] ?? 0)) >= 3 ? "summary-row-alert" : "" ?>">
                             <?php foreach ($summaryColumns as $column): ?>
                             <?php if (($column["format"] ?? "text") === "action_control"): ?>
+                            <?php
+                                $rowActionOptions = [];
+
+                                if (canMarkMonitoringRecordDone($row["status"] ?? "")) {
+                                    $rowActionOptions[] = $monitoringDoneStatus;
+                                }
+
+                                if (((int) ($row["data_correction_offense_count"] ?? 0)) >= 3) {
+                                    foreach ($monitoringActionOptions as $option) {
+                                        if (!in_array($option, $rowActionOptions, true)) {
+                                            $rowActionOptions[] = $option;
+                                        }
+                                    }
+                                }
+                            ?>
                             <td class="summary-discipline-cell summary-action-cell">
-                                <?php if (((int) ($row["data_correction_offense_count"] ?? 0)) >= 3): ?>
+                                <?php if ($rowActionOptions !== []): ?>
                                 <form action="update_monitoring_action.php" method="POST" class="monitoring-action-form">
                                     <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
                                     <input type="hidden" name="record_id" value="<?= e($row["id"] ?? "") ?>">
@@ -109,7 +125,7 @@
                                         onchange="if (this.value !== '') { this.form.submit(); }"
                                     >
                                         <option value="" selected>&#9998;</option>
-                                        <?php foreach ($monitoringActionOptions as $option): ?>
+                                        <?php foreach ($rowActionOptions as $option): ?>
                                         <option value="<?= e($option) ?>"><?= e($option) ?></option>
                                         <?php endforeach; ?>
                                     </select>

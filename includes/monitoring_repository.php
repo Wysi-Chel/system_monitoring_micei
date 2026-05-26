@@ -406,6 +406,18 @@ function updateMonitoringRecordActionTaken(PDO $pdo, string $tableNameSql, int $
     $stmt->execute();
 }
 
+function updateMonitoringRecordStatus(PDO $pdo, string $tableNameSql, int $id, string $status): void
+{
+    $stmt = $pdo->prepare(
+        "UPDATE {$tableNameSql}
+         SET status = :status
+         WHERE id = :id"
+    );
+    $stmt->bindValue(":status", $status, PDO::PARAM_STR);
+    $stmt->bindValue(":id", $id, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
 function countTicketMonitoringRecords(PDO $pdo, string $tableNameSql, array $filters): int
 {
     $bindings = [];
