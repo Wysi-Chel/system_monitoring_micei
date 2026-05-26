@@ -16,7 +16,7 @@ $filterOptions = [
     "department" => $departmentOptions,
     "module" => $moduleOptions,
     "status" => $summaryStatusOptions,
-    "per_page" => $monitoringSummaryRowsPerPageOptions,
+    "per_page" => $rowsPerPageOptions,
 ];
 
 $tableNameSql = quoteMysqlIdentifier($company["table_name"]);
@@ -27,7 +27,7 @@ $filters["page"] = $pagination["page"];
 $records = fetchMonitoringRecords($pdo, $tableNameSql, $filters, $pagination["limit"], $pagination["offset"]);
 $records = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, $records);
 
-$listQueryParams = buildMonitoringListQueryParams($company["key"], $filters, true, $monitoringSummaryRowsPerPageOptions[0]);
+$listQueryParams = buildMonitoringListQueryParams($company["key"], $filters);
 $mitsubishiUrl = buildUrl("index.php", $listQueryParams, [
     "company" => "mitsubishi",
     "saved" => null,
@@ -42,7 +42,7 @@ $ticketMonitoringUrl = buildUrl("ticket_monitoring.php", [
     "company" => $company["key"],
 ]);
 $clearFiltersUrl = buildUrl("index.php", ["company" => $company["key"]]);
-$exportUrl = buildUrl("export_excel.php", buildMonitoringListQueryParams($company["key"], $filters, false, $monitoringSummaryRowsPerPageOptions[0]));
+$exportUrl = buildUrl("export_excel.php", buildMonitoringListQueryParams($company["key"], $filters, false));
 $activeFilterBadges = buildActiveFilterBadges($filters);
 $savedMessage = "Record successfully saved to the " . $company["table_name"] . " table.";
 $validationErrorMessage = resolveMonitoringValidationErrorMessage($_GET["error"] ?? null);
