@@ -276,6 +276,7 @@ function ensureTicketMonitoringTable(PDO $pdo, array $company): void
     ensureMysqlTableColumn($pdo, $tableNameSql, "module", "module VARCHAR(100) AFTER dealer");
     syncLegacyTableIntoTargetIfNeeded($pdo, $company["legacy_ticket_table_names"] ?? [], $company["ticket_table_name"]);
     backfillTicketMonitoringDealerValues($pdo, $tableNameSql);
+    backfillTicketMonitoringModuleValues($pdo, $tableNameSql);
 }
 
 function backfillTicketMonitoringDealerValues(PDO $pdo, string $tableNameSql): void
@@ -286,6 +287,17 @@ function backfillTicketMonitoringDealerValues(PDO $pdo, string $tableNameSql): v
              branch = 'GSC'
          WHERE COALESCE(TRIM(dealer), '') = ''
            AND UPPER(TRIM(branch)) IN ('MGSC', 'NGSC', 'MKC')"
+    );
+}
+
+function backfillTicketMonitoringModuleValues(PDO $pdo, string $tableNameSql): void
+{
+    $pdo->exec(
+        "UPDATE {$tableNameSql}
+         SET module = 'All Modules'
+         WHERE module IS NULL
+            OR TRIM(module) = ''
+            OR UPPER(TRIM(module)) IN ('ALL MODULE', 'ALL MODULES')"
     );
 }
 

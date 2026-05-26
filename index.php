@@ -73,3 +73,4 @@ $validationErrorMessage = resolveMonitoringValidationErrorMessage($_GET["error"]
 <script src="assets/js/index.js" defer></script>
 </body>
 </html>
+    

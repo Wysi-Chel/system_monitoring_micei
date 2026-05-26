@@ -129,7 +129,7 @@ $ticketFormDefaults = [
                         <label for="ticket-module">Module</label>
                         <select id="ticket-module" name="module" required>
                             <option value="">Select module</option>
-                            <?php foreach ($moduleOptions as $option): ?>
+                            <?php foreach ($ticketModuleOptions as $option): ?>
                             <option value="<?= e($option) ?>"<?= $ticketFormDefaults["module"] === $option ? " selected" : "" ?>><?= e($option) ?></option>
                             <?php endforeach; ?>
                         </select>
