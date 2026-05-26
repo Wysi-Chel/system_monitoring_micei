@@ -13,7 +13,7 @@ $filterOptions = [
     "department" => $departmentOptions,
     "module" => $moduleOptions,
     "status" => $summaryStatusOptions,
-    "per_page" => $rowsPerPageOptions,
+    "per_page" => $monitoringSummaryRowsPerPageOptions,
 ];
 $filters = buildMonitoringFilters($_GET, $company, $filterOptions);
 $records = fetchMonitoringRecords($pdo, $tableNameSql, $filters, null, 0, "ASC");

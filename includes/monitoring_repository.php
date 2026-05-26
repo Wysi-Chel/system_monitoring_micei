@@ -55,6 +55,8 @@ function buildMonitoringFilters(array $input, array $company, array $filterOptio
 {
     $dateFrom = normalizeDateFilter($input["date_from"] ?? "");
     $dateTo = normalizeDateFilter($input["date_to"] ?? "");
+    $allowedPerPage = $filterOptions["per_page"] ?? [];
+    $defaultPerPage = $allowedPerPage[0] ?? 25;
 
     if ($dateFrom !== "" && $dateTo !== "" && $dateFrom > $dateTo) {
         [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
@@ -71,11 +73,15 @@ function buildMonitoringFilters(array $input, array $company, array $filterOptio
         "module" => "",
         "status" => normalizeAllowedFilter($input["status"] ?? "", $filterOptions["status"] ?? []),
         "page" => normalizePositiveInt($input["page"] ?? 1, 1),
-        "per_page" => 25,
+        "per_page" => normalizePositiveInt($input["per_page"] ?? $defaultPerPage, $defaultPerPage),
     ];
 
     if (($company["fixed_branch"] ?? null) === null) {
         $filters["branch"] = normalizeAllowedFilter($input["branch"] ?? "", $filterOptions["branch"] ?? []);
+    }
+
+    if (!in_array($filters["per_page"], $allowedPerPage, true)) {
+        $filters["per_page"] = $defaultPerPage;
     }
 
     return $filters;

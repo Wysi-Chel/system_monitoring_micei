@@ -9,6 +9,7 @@ $processedTypeOptions = ["Cancellation", "Unposting", "Void", "Data Correction",
 $statusOptions = ["Pending", "Cancelled", "Unposted", "Voided"];
 $summaryStatusOptions = [...$statusOptions, "Done"];
 $ticketStatusOptions = ["Open", "In Progress", "On Hold", "Resolved"];
+$monitoringSummaryRowsPerPageOptions = [10];
 $rowsPerPageOptions = [25, 50, 100];
 
 $summaryColumns = [
@@ -22,8 +23,8 @@ $summaryColumns = [
     ["key" => "module", "label" => "Module", "format" => "text"],
     ["key" => "user_name", "label" => "User", "format" => "text"],
     ["key" => "invoice_reference", "label" => "Invoice Reference", "format" => "text"],
-    ["key" => "payment_reference", "label" => "Payment Reference", "format" => "text"],
     ["key" => "client_name", "label" => "Client Name", "format" => "text"],
+    ["key" => "payment_reference", "label" => "Payment Reference", "format" => "text"],
     ["key" => "amount", "label" => "Amount", "format" => "amount"],
     ["key" => "reason", "label" => "Reason", "format" => "text"],
     ["key" => "approved_by", "label" => "Approved By", "format" => "text"],

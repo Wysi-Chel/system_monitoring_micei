@@ -61,19 +61,19 @@
                     <input type="text" id="user-name" name="user_name">
                 </div>
 
-                <div class="field field-span-2">
+                <div class="field">
                     <label for="client-name">Client Name</label>
                     <input type="text" id="client-name" name="client_name">
                 </div>
 
                 <div class="field">
-                    <label for="invoice-reference">Transaction Reference</label>
-                    <input type="text" id="invoice-reference" name="invoice_reference">
+                    <label for="payment-reference">Payment Reference</label>
+                    <input type="text" id="payment-reference" name="payment_reference">
                 </div>
 
                 <div class="field">
-                    <label for="payment-reference">Payment Reference</label>
-                    <input type="text" id="payment-reference" name="payment_reference">
+                    <label for="invoice-reference">Transaction Reference</label>
+                    <input type="text" id="invoice-reference" name="invoice_reference">
                 </div>
 
                 <div class="field">

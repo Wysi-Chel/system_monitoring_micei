@@ -77,7 +77,7 @@ function buildUrl(string $script, array $currentParams = [], array $changes = []
     return $script . ($query !== "" ? "?" . $query : "");
 }
 
-function buildMonitoringListQueryParams(string $companyKey, array $filters, bool $includePaging = true): array
+function buildMonitoringListQueryParams(string $companyKey, array $filters, bool $includePaging = true, int $defaultPerPage = 25): array
 {
     $params = [
         "company" => $companyKey,
@@ -103,7 +103,7 @@ function buildMonitoringListQueryParams(string $companyKey, array $filters, bool
         }
     }
 
-    if (($filters["per_page"] ?? 25) !== 25) {
+    if (($filters["per_page"] ?? $defaultPerPage) !== $defaultPerPage) {
         $params["per_page"] = $filters["per_page"];
     }
 
