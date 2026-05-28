@@ -28,7 +28,7 @@ foreach ($records as $row) {
         $value = $row[$column["key"]] ?? "";
 
         if (($column["format"] ?? "text") === "action_control") {
-            $rowValues[] = "";
+            $rowValues[] = $row["disciplinary_action"] ?? "";
             continue;
         }
 

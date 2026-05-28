@@ -42,6 +42,17 @@
             </div>
 
             <div class="field">
+                <label for="filter-identification-number">ID Number</label>
+                <input
+                    type="text"
+                    id="filter-identification-number"
+                    name="id_number"
+                    value="<?= e($filters["identification_number"] ?? "") ?>"
+                    placeholder="ID #"
+                >
+            </div>
+
+            <div class="field">
                 <label for="filter-status">Status</label>
                 <select id="filter-status" name="status">
                     <option value="">All statuses</option>
@@ -89,6 +100,12 @@
                     </tr>
                 <?php else: ?>
                     <?php foreach ($records as $row): ?>
+                        <?php
+                            $formattedDisciplinaryAction = trim((string) formatSummaryValue(
+                                ["key" => "disciplinary_action", "format" => "text"],
+                                $row
+                            ));
+                        ?>
                         <tr class="<?= ((int) ($row["data_correction_offense_count"] ?? 0)) >= 3 ? "summary-row-alert" : "" ?>">
                             <?php foreach ($summaryColumns as $column): ?>
                             <?php if (($column["format"] ?? "text") === "action_control"): ?>
@@ -108,6 +125,7 @@
                                 }
                             ?>
                             <td class="summary-discipline-cell summary-action-cell">
+                                <div class="summary-action-content">
                                 <?php if ($rowActionOptions !== []): ?>
                                 <form action="update_monitoring_action.php" method="POST" class="monitoring-action-form">
                                     <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
@@ -115,10 +133,11 @@
                                     <input type="hidden" name="filter_month" value="<?= e($filters["month"] ?? "") ?>">
                                     <input type="hidden" name="filter_branch" value="<?= e($filters["branch"] ?? "") ?>">
                                     <input type="hidden" name="filter_dealer" value="<?= e($filters["dealer"] ?? "") ?>">
+                                    <input type="hidden" name="filter_identification_number" value="<?= e($filters["identification_number"] ?? "") ?>">
                                     <input type="hidden" name="filter_status" value="<?= e($filters["status"] ?? "") ?>">
                                     <input type="hidden" name="filter_page" value="<?= e($pagination["page"]) ?>">
                                     <select
-                                        name="action_taken"
+                                        name="disciplinary_action"
                                         class="summary-action-select"
                                         aria-label="Choose disciplinary action"
                                         title="Choose Action"
@@ -133,10 +152,36 @@
                                 <?php else: ?>
                                 <span class="summary-action-placeholder" aria-hidden="true"></span>
                                 <?php endif; ?>
+                                </div>
+                            </td>
+                            <?php elseif (($column["format"] ?? "text") === "record_link"): ?>
+                            <?php
+                                $identificationNumber = trim((string) ($row["identification_number"] ?? ""));
+                                $recordUrl = $identificationNumber !== ""
+                                    ? buildUrl("monitoring_record.php", $listQueryParams, ["identification_number" => $identificationNumber])
+                                    : "";
+                            ?>
+                            <td>
+                                <?php if ($recordUrl !== ""): ?>
+                                <a href="<?= e($recordUrl) ?>" class="record-link"><?= e(formatSummaryValue($column, $row)) ?></a>
+                                <?php else: ?>
+                                <?= e(formatSummaryValue($column, $row)) ?>
+                                <?php endif; ?>
                             </td>
                             <?php else: ?>
-                            <td class="<?= in_array($column["key"], ["data_correction_alert", "disciplinary_action", "action_taken"], true) ? "summary-discipline-cell" : "" ?>">
-                                <?= e(formatSummaryValue($column, $row)) ?>
+                            <?php
+                                $cellValue = formatSummaryValue($column, $row);
+                                $cellClass = in_array($column["key"], ["data_correction_alert", "disciplinary_action"], true)
+                                    ? "summary-discipline-cell"
+                                    : "";
+
+                                if ($column["key"] === "offense" && $formattedDisciplinaryAction !== "") {
+                                    $cellValue = $formattedDisciplinaryAction;
+                                    $cellClass = trim($cellClass . " summary-discipline-cell");
+                                }
+                            ?>
+                            <td class="<?= e($cellClass) ?>">
+                                <?= e($cellValue) ?>
                             </td>
                             <?php endif; ?>
                             <?php endforeach; ?>

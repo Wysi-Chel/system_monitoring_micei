@@ -32,6 +32,11 @@ function resolveMonitoringValidationErrorMessage(?string $errorCode): ?string
 {
     return match (trim((string) $errorCode)) {
         "data_correction_user_required" => "USER IS REQUIRED WHEN PROCESSED TYPE INCLUDES DATA CORRECTION.",
+        "incident_image_invalid_type" => "ONLY JPG, PNG, WEBP, OR GIF INCIDENT REPORT IMAGES ARE ALLOWED.",
+        "incident_image_too_large" => "INCIDENT REPORT IMAGE MUST BE 5 MB OR SMALLER.",
+        "incident_image_upload_failed" => "INCIDENT REPORT IMAGE COULD NOT BE UPLOADED.",
+        "incident_image_storage_failed" => "INCIDENT REPORT IMAGE COULD NOT BE SAVED.",
+        "record_save_failed" => "THE RECORD COULD NOT BE SAVED RIGHT NOW.",
         default => null,
     };
 }
@@ -85,6 +90,7 @@ function buildMonitoringListQueryParams(string $companyKey, array $filters, bool
 
     $fieldMap = [
         "search" => "q",
+        "identification_number" => "id_number",
         "month" => "month",
         "date_from" => "date_from",
         "date_to" => "date_to",
@@ -236,7 +242,7 @@ function formatTicketAgeValue(array $row): string
 function formatSummaryValue(array $column, array $row): string
 {
     $value = $row[$column["key"]] ?? "";
-    $uppercaseSummaryKeys = ["user_name", "client_name", "reason", "processed_type", "classification", "status", "offense", "disciplinary_action", "action_taken"];
+    $uppercaseSummaryKeys = ["identification_number", "user_name", "client_name", "reason", "processed_type", "classification", "status", "offense", "disciplinary_action", "action_taken"];
 
     switch ($column["format"] ?? "text") {
         case "date":
@@ -336,6 +342,10 @@ function buildActiveFilterBadges(array $filters, ?string $fixedBranch = null): a
 
     if (($filters["dealer"] ?? "") !== "") {
         $badges[] = "Dealers: " . $filters["dealer"];
+    }
+
+    if (($filters["identification_number"] ?? "") !== "") {
+        $badges[] = "ID Number: " . $filters["identification_number"];
     }
 
     if ($filters["status"] !== "") {

@@ -54,6 +54,79 @@ function companySupportsTicketMonitoring(array $company): bool
     return (bool) ($company["has_ticket_monitoring"] ?? false);
 }
 
+function buildMonitoringIdentificationNumber(array $company, int $recordId): string
+{
+    return str_pad((string) max(0, $recordId), 6, "0", STR_PAD_LEFT);
+}
+
+function getNextMonitoringRecordId(PDO $pdo, array $company): int
+{
+    $tableName = trim((string) ($company["table_name"] ?? ""));
+    if ($tableName === "") {
+        return 1;
+    }
+
+    $autoIncrementStmt = $pdo->prepare(
+        "SELECT AUTO_INCREMENT
+         FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = :table_name"
+    );
+    $autoIncrementStmt->execute([
+        ":table_name" => $tableName,
+    ]);
+
+    $nextRecordId = (int) $autoIncrementStmt->fetchColumn();
+    if ($nextRecordId > 0) {
+        return $nextRecordId;
+    }
+
+    $tableNameSql = quoteMysqlIdentifier($tableName);
+    $maxRecordId = (int) $pdo->query("SELECT MAX(id) FROM {$tableNameSql}")->fetchColumn();
+    return max(1, $maxRecordId + 1);
+}
+
+function getNextMonitoringIdentificationNumber(PDO $pdo, array $company): string
+{
+    return buildMonitoringIdentificationNumber($company, getNextMonitoringRecordId($pdo, $company));
+}
+
+function getMonitoringIncidentReportRelativeDirectory(array $company): string
+{
+    $companyKey = strtolower(trim((string) ($company["key"] ?? "default")));
+    $companyKey = preg_replace('/[^a-z0-9_-]+/', '_', $companyKey) ?? "default";
+    $companyKey = $companyKey !== "" ? $companyKey : "default";
+
+    return "uploads/incident_reports/" . $companyKey;
+}
+
+function ensureMonitoringIncidentReportDirectory(array $company): string
+{
+    $relativeDirectory = str_replace(["/", "\\"], DIRECTORY_SEPARATOR, getMonitoringIncidentReportRelativeDirectory($company));
+    $absoluteDirectory = __DIR__ . DIRECTORY_SEPARATOR . $relativeDirectory;
+
+    if (!is_dir($absoluteDirectory) && !mkdir($absoluteDirectory, 0777, true) && !is_dir($absoluteDirectory)) {
+        throw new RuntimeException("incident_image_storage_failed");
+    }
+
+    return $absoluteDirectory;
+}
+
+function getMonitoringStoredFileAbsolutePath(string $relativePath): string
+{
+    $normalizedRelativePath = ltrim(str_replace(["/", "\\"], DIRECTORY_SEPARATOR, $relativePath), DIRECTORY_SEPARATOR);
+    return __DIR__ . DIRECTORY_SEPARATOR . $normalizedRelativePath;
+}
+
+function buildVersionedAssetPath(string $relativePath): string
+{
+    $normalizedRelativePath = ltrim(str_replace("\\", "/", $relativePath), "/");
+    $absolutePath = __DIR__ . DIRECTORY_SEPARATOR . str_replace("/", DIRECTORY_SEPARATOR, $normalizedRelativePath);
+    $version = is_file($absolutePath) ? (string) filemtime($absolutePath) : "1";
+
+    return $normalizedRelativePath . "?v=" . rawurlencode($version);
+}
+
 function quoteMysqlIdentifier(string $identifier): string
 {
     return "`" . str_replace("`", "``", $identifier) . "`";
@@ -192,6 +265,7 @@ function ensureMonitoringTable(PDO $pdo, array $company): void
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS {$tableNameSql} (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            identification_number VARCHAR(100),
             date_recorded DATE NOT NULL,
             transaction_date DATE NOT NULL,
             branch VARCHAR(100),
@@ -208,20 +282,28 @@ function ensureMonitoringTable(PDO $pdo, array $company): void
             processed_type VARCHAR(100),
             processed_by VARCHAR(150),
             remarks TEXT,
+            incident_report_image_path VARCHAR(255),
             classification VARCHAR(100),
             system_admin VARCHAR(150),
             ticket VARCHAR(150),
             status VARCHAR(100),
             offense VARCHAR(150),
+            disciplinary_action VARCHAR(100),
             action_taken VARCHAR(100),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )"
     );
+    ensureMysqlTableColumn($pdo, $tableNameSql, "identification_number", "identification_number VARCHAR(100) AFTER id");
     ensureMysqlTableColumn($pdo, $tableNameSql, "dealer", "dealer VARCHAR(100) AFTER branch");
+    ensureMysqlTableColumn($pdo, $tableNameSql, "incident_report_image_path", "incident_report_image_path VARCHAR(255) NULL AFTER remarks");
+    ensureMysqlTableColumn($pdo, $tableNameSql, "disciplinary_action", "disciplinary_action VARCHAR(100) AFTER offense");
     ensureMysqlTableColumn($pdo, $tableNameSql, "action_taken", "action_taken VARCHAR(100) AFTER offense");
     syncLegacyTableIntoTargetIfNeeded($pdo, $company["legacy_table_names"] ?? [], $company["table_name"]);
     backfillMonitoringDealerValues($pdo, $tableNameSql);
     backfillMonitoringModuleValues($pdo, $tableNameSql);
+    backfillMonitoringIdentificationNumbers($pdo, $company, $tableNameSql);
+    backfillMonitoringDisciplinaryActions($pdo, $tableNameSql);
+    backfillMonitoringOffenseMemoValues($pdo, $tableNameSql);
 }
 
 function backfillMonitoringDealerValues(PDO $pdo, string $tableNameSql): void
@@ -243,6 +325,59 @@ function backfillMonitoringModuleValues(PDO $pdo, string $tableNameSql): void
          WHERE module IS NULL
             OR TRIM(module) = ''
             OR UPPER(TRIM(module)) IN ('ALL MODULE', 'ALL MODULES')"
+    );
+}
+
+function backfillMonitoringIdentificationNumbers(PDO $pdo, array $company, string $tableNameSql): void
+{
+    $selectStmt = $pdo->query(
+        "SELECT id, identification_number
+         FROM {$tableNameSql}
+         ORDER BY id ASC"
+    );
+    $updateStmt = $pdo->prepare(
+        "UPDATE {$tableNameSql}
+         SET identification_number = :identification_number
+         WHERE id = :id"
+    );
+
+    foreach ($selectStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $recordId = (int) ($row["id"] ?? 0);
+        if ($recordId <= 0) {
+            continue;
+        }
+
+        $expectedIdentificationNumber = buildMonitoringIdentificationNumber($company, $recordId);
+        $currentIdentificationNumber = trim((string) ($row["identification_number"] ?? ""));
+
+        if ($currentIdentificationNumber === $expectedIdentificationNumber) {
+            continue;
+        }
+
+        $updateStmt->execute([
+            ":identification_number" => $expectedIdentificationNumber,
+            ":id" => $recordId,
+        ]);
+    }
+}
+
+function backfillMonitoringDisciplinaryActions(PDO $pdo, string $tableNameSql): void
+{
+    $pdo->exec(
+        "UPDATE {$tableNameSql}
+         SET disciplinary_action = action_taken
+         WHERE COALESCE(TRIM(disciplinary_action), '') = ''
+           AND COALESCE(TRIM(action_taken), '') <> ''"
+    );
+}
+
+function backfillMonitoringOffenseMemoValues(PDO $pdo, string $tableNameSql): void
+{
+    $pdo->exec(
+        "UPDATE {$tableNameSql}
+         SET offense = disciplinary_action
+         WHERE COALESCE(TRIM(disciplinary_action), '') <> ''
+           AND COALESCE(TRIM(offense), '') = ''"
     );
 }
 

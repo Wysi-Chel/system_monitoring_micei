@@ -43,7 +43,6 @@ $activeFilterBadges = buildTicketFilterBadges($filters, $fixedBranch);
 $ticketSummaryAnchor = "#ticket-summary";
 $headerKicker = $company["company_name"];
 $headerTitle = "Ticket Monitoring";
-$headerDescription = "Encode and track ticket records for " . $company["company_name"] . ". The ticket age is calculated automatically until the ticket is resolved.";
 $showCompanySwitch = true;
 $paginationPages = buildPaginationPages($pagination["page"], $pagination["total_pages"]);
 $savedMessage = isset($_GET["updated"])
@@ -68,7 +67,7 @@ $ticketFormDefaults = [
     <link rel="icon" type="<?= e($company["logo_type"]) ?>" href="<?= e($company["logo_path"]) ?>">
     <link rel="shortcut icon" type="<?= e($company["logo_type"]) ?>" href="<?= e($company["logo_path"]) ?>">
     <script src="assets/js/theme-init.js"></script>
-    <link rel="stylesheet" href="assets/css/index.css">
+    <link rel="stylesheet" href="<?= e(buildVersionedAssetPath("assets/css/index.css")) ?>">
 </head>
 <body class="company-<?= e($company["key"]) ?> page-ticket-monitoring">
 <?php require __DIR__ . "/includes/partials/page_header.php"; ?>

@@ -9,6 +9,19 @@ function normalizeSearchFilter($value): string
     return preg_replace('/\s+/u', ' ', $value) ?? $value;
 }
 
+function normalizeIdentificationNumberFilter($value): string
+{
+    $value = trim((string) $value);
+    if ($value === "") {
+        return "";
+    }
+
+    $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+    return function_exists("mb_strtoupper")
+        ? mb_strtoupper($value, "UTF-8")
+        : strtoupper($value);
+}
+
 function normalizeDateFilter($value): string
 {
     $value = trim((string) $value);
@@ -64,6 +77,7 @@ function buildMonitoringFilters(array $input, array $company, array $filterOptio
 
     $filters = [
         "search" => "",
+        "identification_number" => normalizeIdentificationNumberFilter($input["id_number"] ?? ""),
         "month" => normalizeMonthFilter($input["month"] ?? ""),
         "date_from" => "",
         "date_to" => "",
@@ -121,6 +135,7 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
             "dealer",
             "department",
             "module",
+            "identification_number",
             "user_name",
             "invoice_reference",
             "payment_reference",
@@ -129,11 +144,12 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
             "reason",
             "approved_by",
             "processed_type",
-            "processed_by",
-            "remarks",
-            "classification",
-            "system_admin",
-            "ticket",
+        "processed_by",
+        "remarks",
+        "disciplinary_action",
+        "classification",
+        "system_admin",
+        "ticket",
             "status",
             "offense",
             "DATE_FORMAT(date_recorded, '%Y-%m-%d')",
@@ -149,6 +165,11 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
         }
 
         $conditions[] = "(" . implode(" OR ", $searchParts) . ")";
+    }
+
+    if (($filters["identification_number"] ?? "") !== "") {
+        $conditions[] = "identification_number = :identification_number";
+        $bindings["identification_number"] = $filters["identification_number"];
     }
 
     if (($filters["month"] ?? "") !== "") {
@@ -365,7 +386,11 @@ function enrichMonitoringRecordsWithDataCorrectionActions(PDO $pdo, string $tabl
     foreach ($records as &$row) {
         $row["data_correction_offense_count"] = 0;
         $row["data_correction_alert"] = "";
-        $row["disciplinary_action"] = "";
+        $row["disciplinary_action"] = trim((string) ($row["disciplinary_action"] ?? ""));
+
+        if ($row["disciplinary_action"] === "") {
+            $row["disciplinary_action"] = trim((string) ($row["action_taken"] ?? ""));
+        }
 
         if (!containsMultiValueText((string) ($row["processed_type"] ?? ""), "Data Correction")) {
             continue;
@@ -383,7 +408,6 @@ function enrichMonitoringRecordsWithDataCorrectionActions(PDO $pdo, string $tabl
 
         $row["data_correction_offense_count"] = $offenseCount;
         $row["data_correction_alert"] = (string) $offenseCount;
-        $row["disciplinary_action"] = $offenseCount >= 3 ? "available" : "";
     }
     unset($row);
 
@@ -400,14 +424,31 @@ function fetchMonitoringRecordById(PDO $pdo, string $tableNameSql, int $id): ?ar
     return $record === false ? null : $record;
 }
 
+function fetchMonitoringRecordByIdentificationNumber(PDO $pdo, string $tableNameSql, string $identificationNumber): ?array
+{
+    $stmt = $pdo->prepare(
+        "SELECT *
+         FROM {$tableNameSql}
+         WHERE identification_number = :identification_number
+         LIMIT 1"
+    );
+    $stmt->bindValue(":identification_number", normalizeIdentificationNumberFilter($identificationNumber), PDO::PARAM_STR);
+    $stmt->execute();
+
+    $record = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $record === false ? null : $record;
+}
+
 function updateMonitoringRecordActionTaken(PDO $pdo, string $tableNameSql, int $id, string $actionTaken): void
 {
     $stmt = $pdo->prepare(
         "UPDATE {$tableNameSql}
-         SET action_taken = :action_taken
+         SET disciplinary_action = :disciplinary_action,
+             action_taken = :disciplinary_action,
+             offense = :disciplinary_action
          WHERE id = :id"
     );
-    $stmt->bindValue(":action_taken", $actionTaken, PDO::PARAM_STR);
+    $stmt->bindValue(":disciplinary_action", $actionTaken, PDO::PARAM_STR);
     $stmt->bindValue(":id", $id, PDO::PARAM_INT);
     $stmt->execute();
 }

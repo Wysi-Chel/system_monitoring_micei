@@ -7,8 +7,9 @@
     </div>
     <?php endif; ?>
 
-    <form action="save.php" method="POST" id="record-form">
+    <form action="save.php" method="POST" id="record-form" enctype="multipart/form-data">
         <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
+        <input type="hidden" name="identification_number" value="<?= e($nextMonitoringIdentificationNumber) ?>">
 
         <section class="form-section compact-section">
             <div class="field-grid compact date-grid">
@@ -59,6 +60,11 @@
                 <div class="field field-span-2">
                     <label for="user-name">User</label>
                     <input type="text" id="user-name" name="user_name">
+                </div>
+
+                <div class="field">
+                    <label for="identification-number-preview">Identification Number</label>
+                    <input type="text" id="identification-number-preview" value="<?= e($nextMonitoringIdentificationNumber) ?>" readonly>
                 </div>
 
                 <div class="field field-span-2">
@@ -126,6 +132,11 @@
                 <div class="field field-span-2">
                     <label for="remarks">Remarks</label>
                     <input type="text" id="remarks" name="remarks">
+                </div>
+
+                <div class="field field-span-2">
+                    <label for="incident-report-image">Incident Report Image</label>
+                    <input type="file" id="incident-report-image" name="incident_report_image" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif">
                 </div>
             </div>
         </section>

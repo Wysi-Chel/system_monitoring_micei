@@ -15,6 +15,7 @@ $rowsPerPageOptions = [25, 50, 100];
 $summaryColumns = [
     ["key" => "data_correction_alert", "label" => "Alert", "format" => "text"],
     ["key" => "disciplinary_action", "label" => "Action", "format" => "action_control"],
+    ["key" => "identification_number", "label" => "ID Number", "format" => "record_link"],
     ["key" => "date_recorded", "label" => "Date", "format" => "date"],
     ["key" => "transaction_date", "label" => "Transaction Date", "format" => "date"],
     ["key" => "branch", "label" => "Branch", "format" => "text"],
@@ -37,7 +38,34 @@ $summaryColumns = [
     ["key" => "status", "label" => "Status", "format" => "text"],
     ["key" => "offense", "label" => "Offense", "format" => "text"],
     ["key" => "created_at", "label" => "Encoded At", "format" => "timestamp"],
-    ["key" => "action_taken", "label" => "Action Log", "format" => "text"],
+];
+
+$monitoringDetailFields = [
+    ["key" => "identification_number", "label" => "ID Number", "format" => "text"],
+    ["key" => "date_recorded", "label" => "Date", "format" => "date"],
+    ["key" => "transaction_date", "label" => "Transaction Date", "format" => "date"],
+    ["key" => "branch", "label" => "Branch", "format" => "text"],
+    ["key" => "dealer", "label" => "Dealers", "format" => "text"],
+    ["key" => "department", "label" => "Department", "format" => "text"],
+    ["key" => "module", "label" => "Module", "format" => "text"],
+    ["key" => "user_name", "label" => "User", "format" => "text"],
+    ["key" => "invoice_reference", "label" => "Invoice Reference", "format" => "text"],
+    ["key" => "client_name", "label" => "Client Name", "format" => "text"],
+    ["key" => "payment_reference", "label" => "Payment Reference", "format" => "text"],
+    ["key" => "amount", "label" => "Amount", "format" => "amount"],
+    ["key" => "reason", "label" => "Reason", "format" => "text"],
+    ["key" => "approved_by", "label" => "Approved By", "format" => "text"],
+    ["key" => "processed_type", "label" => "Processed Type", "format" => "text"],
+    ["key" => "processed_by", "label" => "Processed By", "format" => "text"],
+    ["key" => "remarks", "label" => "Remarks", "format" => "text"],
+    ["key" => "classification", "label" => "Classification", "format" => "text"],
+    ["key" => "system_admin", "label" => "System Admin", "format" => "text"],
+    ["key" => "ticket", "label" => "Ticket", "format" => "text"],
+    ["key" => "status", "label" => "Status", "format" => "text"],
+    ["key" => "offense", "label" => "Offense", "format" => "text"],
+    ["key" => "data_correction_alert", "label" => "Alert", "format" => "text"],
+    ["key" => "disciplinary_action", "label" => "Disciplinary Action", "format" => "text"],
+    ["key" => "created_at", "label" => "Encoded At", "format" => "timestamp"],
 ];
 
 $ticketMonitoringColumns = [

@@ -9,6 +9,7 @@ $company = resolveCompanyConfig($_GET["company"] ?? null, $companyConfigs);
 $fixedBranch = $company["fixed_branch"] ?? null;
 $showBranchSelector = $fixedBranch === null;
 ensureMonitoringTable($pdo, $company);
+$nextMonitoringIdentificationNumber = getNextMonitoringIdentificationNumber($pdo, $company);
 
 $filterOptions = [
     "branch" => $branchOptions,
@@ -16,7 +17,7 @@ $filterOptions = [
     "department" => $departmentOptions,
     "module" => $moduleOptions,
     "status" => $summaryStatusOptions,
-    "per_page" => $rowsPerPageOptions,
+    "per_page" => $monitoringSummaryRowsPerPageOptions,
 ];
 
 $tableNameSql = quoteMysqlIdentifier($company["table_name"]);
@@ -27,7 +28,7 @@ $filters["page"] = $pagination["page"];
 $records = fetchMonitoringRecords($pdo, $tableNameSql, $filters, $pagination["limit"], $pagination["offset"]);
 $records = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, $records);
 
-$listQueryParams = buildMonitoringListQueryParams($company["key"], $filters);
+$listQueryParams = buildMonitoringListQueryParams($company["key"], $filters, true, $monitoringSummaryRowsPerPageOptions[0]);
 $mitsubishiUrl = buildUrl("index.php", $listQueryParams, [
     "company" => "mitsubishi",
     "saved" => null,
@@ -42,9 +43,12 @@ $ticketMonitoringUrl = buildUrl("ticket_monitoring.php", [
     "company" => $company["key"],
 ]);
 $clearFiltersUrl = buildUrl("index.php", ["company" => $company["key"]]);
-$exportUrl = buildUrl("export_excel.php", buildMonitoringListQueryParams($company["key"], $filters, false));
+$exportUrl = buildUrl("export_excel.php", buildMonitoringListQueryParams($company["key"], $filters, false, $monitoringSummaryRowsPerPageOptions[0]));
 $activeFilterBadges = buildActiveFilterBadges($filters);
-$savedMessage = "Record successfully saved to the " . $company["table_name"] . " table.";
+$savedIdentificationNumber = trim((string) ($_GET["identification_number"] ?? ""));
+$savedMessage = $savedIdentificationNumber !== ""
+    ? "Record " . $savedIdentificationNumber . " successfully saved to the " . $company["table_name"] . " table."
+    : "Record successfully saved to the " . $company["table_name"] . " table.";
 $validationErrorMessage = resolveMonitoringValidationErrorMessage($_GET["error"] ?? null);
 ?>
 <!DOCTYPE html>
@@ -56,7 +60,7 @@ $validationErrorMessage = resolveMonitoringValidationErrorMessage($_GET["error"]
     <link rel="icon" type="<?= e($company["logo_type"]) ?>" href="<?= e($company["logo_path"]) ?>">
     <link rel="shortcut icon" type="<?= e($company["logo_type"]) ?>" href="<?= e($company["logo_path"]) ?>">
     <script src="assets/js/theme-init.js"></script>
-    <link rel="stylesheet" href="assets/css/index.css">
+    <link rel="stylesheet" href="<?= e(buildVersionedAssetPath("assets/css/index.css")) ?>">
 </head>
 <body class="company-<?= e($company["key"]) ?> page-system-monitoring">
 <?php require __DIR__ . "/includes/partials/page_header.php"; ?>
