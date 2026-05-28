@@ -4,3 +4,4 @@ __pycache__/
 *.zip
 sample_export_unzipped/
 zip_out/
+.app-env

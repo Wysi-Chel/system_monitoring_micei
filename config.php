@@ -1,8 +1,77 @@
 <?php
+function readApplicationEnvironmentMarker(string $appRoot): string
+{
+    $markerPath = $appRoot . DIRECTORY_SEPARATOR . ".app-env";
+    if (!is_file($markerPath)) {
+        return "";
+    }
+
+    $markerValue = trim((string) file_get_contents($markerPath));
+    return in_array($markerValue, ["live", "test"], true) ? $markerValue : "";
+}
+
+function detectApplicationEnvironment(string $appRoot): string
+{
+    $markerEnvironment = readApplicationEnvironmentMarker($appRoot);
+    if ($markerEnvironment !== "") {
+        return $markerEnvironment;
+    }
+
+    $folderName = strtolower(basename($appRoot));
+    return str_ends_with($folderName, "_test") ? "test" : "live";
+}
+
+function buildApplicationDatabaseName(string $baseDatabaseName, string $environmentName): string
+{
+    if ($environmentName !== "test") {
+        return $baseDatabaseName;
+    }
+
+    return str_ends_with($baseDatabaseName, "_db")
+        ? substr($baseDatabaseName, 0, -3) . "_test_db"
+        : $baseDatabaseName . "_test";
+}
+
+function getApplicationEnvironmentLabel(string $environmentName): string
+{
+    return $environmentName === "test" ? "Test Server" : "Live Server";
+}
+
+function getApplicationEnvironmentName(): string
+{
+    global $appEnvironmentName;
+    return (string) $appEnvironmentName;
+}
+
+function getApplicationEnvironmentDisplayLabel(): string
+{
+    global $appEnvironmentLabel;
+    return (string) $appEnvironmentLabel;
+}
+
+function isApplicationTestEnvironment(): bool
+{
+    return getApplicationEnvironmentName() === "test";
+}
+
+function isLocalWebRequest(): bool
+{
+    $remoteAddress = trim((string) ($_SERVER["REMOTE_ADDR"] ?? ""));
+    return in_array($remoteAddress, ["127.0.0.1", "::1", "::ffff:127.0.0.1"], true);
+}
+
+function canAccessPromoteToLiveUi(): bool
+{
+    return isApplicationTestEnvironment() && isLocalWebRequest();
+}
+
 // Database settings
 // For XAMPP default setup, username is usually "root" and password is usually blank.
+$appEnvironmentName = detectApplicationEnvironment(__DIR__);
+$appEnvironmentLabel = getApplicationEnvironmentLabel($appEnvironmentName);
 $host = "localhost";
-$dbname = "system_monitoring_db";
+$baseDbname = "system_monitoring_db";
+$dbname = buildApplicationDatabaseName($baseDbname, $appEnvironmentName);
 $username = "chel";
 $password = "Wysiwyg1721!";
 

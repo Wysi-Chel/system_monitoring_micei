@@ -80,3 +80,59 @@ EXCEL NOTE:
 
 You can keep Excel open separately because the live data is saved in MySQL.
 Use the Export to Excel button anytime to download the latest summary.
+
+LIVE AND TEST SERVER SETUP:
+
+- Live server:
+  http://localhost/system_monitoring/
+
+- Test server:
+  http://localhost/system_monitoring_test/
+
+- Live database:
+  system_monitoring_db
+
+- Test database:
+  system_monitoring_test_db
+
+The app uses the local `.app-env` marker file to decide whether it is running
+as the live server or the test server.
+
+PROMOTE TO LIVE WORKFLOW:
+
+Always make and test changes in:
+  C:\xampp\htdocs\system_monitoring_test
+
+When ready to deploy those changes to live, run this from:
+  C:\xampp\htdocs\system_monitoring
+
+1. Preview the promotion first:
+   powershell -ExecutionPolicy Bypass -File scripts\promote_to_live.ps1
+
+2. Promote test changes to live:
+   powershell -ExecutionPolicy Bypass -File scripts\promote_to_live.ps1 -Apply
+
+3. If you intentionally removed files in test and want them removed in live too:
+   powershell -ExecutionPolicy Bypass -File scripts\promote_to_live.ps1 -Apply -DeleteRemoved
+
+BROWSER BUTTON:
+
+When you open the test server locally, a `Promote To Live` button appears in the
+top header. It opens a promotion page that:
+
+- previews the current test-to-live file diff
+- lets you promote from the browser
+- shows the promotion result/output after it runs
+
+WHAT THE PROMOTION SCRIPT DOES:
+
+- reads code from `C:\xampp\htdocs\system_monitoring_test`
+- promotes it into `C:\xampp\htdocs\system_monitoring`
+- skips `.app-env`, `.git`, and `uploads`
+- creates a backup before overwriting live files
+- runs a live schema sync after promotion
+
+HELPER SCRIPT:
+
+You can manually sync the current environment schema anytime with:
+  php scripts\sync_environment_schema.php
