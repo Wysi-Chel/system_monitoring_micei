@@ -48,7 +48,7 @@
                     id="filter-identification-number"
                     name="id_number"
                     value="<?= e($filters["identification_number"] ?? "") ?>"
-                    placeholder="ID #"
+                    placeholder=""
                 >
             </div>
 

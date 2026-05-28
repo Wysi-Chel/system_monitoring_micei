@@ -168,8 +168,8 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
     }
 
     if (($filters["identification_number"] ?? "") !== "") {
-        $conditions[] = "identification_number = :identification_number";
-        $bindings["identification_number"] = $filters["identification_number"];
+        $conditions[] = "identification_number LIKE :identification_number ESCAPE '\\\\'";
+        $bindings["identification_number"] = "%" . escapeLikeTerm($filters["identification_number"]) . "%";
     }
 
     if (($filters["month"] ?? "") !== "") {

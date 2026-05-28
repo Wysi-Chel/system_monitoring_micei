@@ -19,7 +19,7 @@ $filterOptions = [
 
 $filters = buildMonitoringFilters($_GET, $company, $filterOptions);
 $hasIdNumberFilter = isset($_GET["id_number"]) && trim((string) $_GET["id_number"]) !== "";
-$identificationNumberInput = $_GET["id_number"] ?? $_GET["identification_number"] ?? "";
+$identificationNumberInput = $_GET["identification_number"] ?? $_GET["id_number"] ?? "";
 $identificationNumber = normalizeIdentificationNumberFilter($identificationNumberInput);
 
 $record = null;
