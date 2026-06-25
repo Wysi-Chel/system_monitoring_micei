@@ -18,6 +18,11 @@ $filterOptions = [
 $filters = buildMonitoringFilters($_GET, $company, $filterOptions);
 $records = fetchMonitoringRecords($pdo, $tableNameSql, $filters, null, 0, "ASC");
 $records = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, $records);
+
+if (!empty($filters["escalation_only"])) {
+    $records = filterEscalationCandidateMonitoringRecords($records);
+}
+
 $headers = getSummaryHeaders($summaryColumns);
 
 $rows = [];

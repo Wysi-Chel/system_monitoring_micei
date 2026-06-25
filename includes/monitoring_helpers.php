@@ -28,6 +28,25 @@ function containsMultiValueText(?string $value, string $target): bool
     return in_array($targetKey, $values, true);
 }
 
+function splitMultiValueText(?string $value): array
+{
+    $normalizedValue = trim((string) $value);
+    if ($normalizedValue === "") {
+        return [];
+    }
+
+    $items = array_map(
+        static fn(string $item): string => trim($item),
+        explode(",", $normalizedValue)
+    );
+    $items = array_values(array_filter(
+        $items,
+        static fn(string $item): bool => $item !== ""
+    ));
+
+    return array_values(array_unique($items));
+}
+
 function resolveMonitoringValidationErrorMessage(?string $errorCode): ?string
 {
     return match (trim((string) $errorCode)) {
@@ -91,6 +110,7 @@ function buildMonitoringListQueryParams(string $companyKey, array $filters, bool
     $fieldMap = [
         "search" => "q",
         "identification_number" => "id_number",
+        "user_name" => "user",
         "month" => "month",
         "date_from" => "date_from",
         "date_to" => "date_to",
@@ -111,6 +131,14 @@ function buildMonitoringListQueryParams(string $companyKey, array $filters, bool
 
     if (($filters["per_page"] ?? $defaultPerPage) !== $defaultPerPage) {
         $params["per_page"] = $filters["per_page"];
+    }
+
+    if (!empty($filters["data_correction_only"])) {
+        $params["data_correction"] = 1;
+    }
+
+    if (!empty($filters["escalation_only"])) {
+        $params["escalation"] = 1;
     }
 
     if ($includePaging && ($filters["page"] ?? 1) > 1) {
@@ -348,11 +376,37 @@ function buildActiveFilterBadges(array $filters, ?string $fixedBranch = null): a
         $badges[] = "ID Number: " . $filters["identification_number"];
     }
 
+    if (($filters["user_name"] ?? "") !== "") {
+        $badges[] = "User: " . uppercaseText($filters["user_name"]);
+    }
+
     if ($filters["status"] !== "") {
         $badges[] = "Status: " . $filters["status"];
     }
 
+    if (!empty($filters["data_correction_only"])) {
+        $badges[] = "Processed Type: Data Correction";
+    }
+
+    if (!empty($filters["escalation_only"])) {
+        $badges[] = "Escalation Candidates";
+    }
+
     return $badges;
+}
+
+function isEscalationCandidateMonitoringRecord(array $row): bool
+{
+    return containsMultiValueText((string) ($row["processed_type"] ?? ""), "Data Correction")
+        && (int) ($row["data_correction_offense_count"] ?? 0) >= 3;
+}
+
+function filterEscalationCandidateMonitoringRecords(array $records): array
+{
+    return array_values(array_filter(
+        $records,
+        static fn(array $row): bool => isEscalationCandidateMonitoringRecord($row)
+    ));
 }
 
 function buildTicketFilterBadges(array $filters, ?string $fixedBranch = null): array
@@ -378,4 +432,187 @@ function buildTicketFilterBadges(array $filters, ?string $fixedBranch = null): a
     }
 
     return $badges;
+}
+
+function incrementDashboardBucket(array &$buckets, string $label, int $amount = 1): void
+{
+    $normalizedLabel = trim($label);
+    if ($normalizedLabel === "" || $amount <= 0) {
+        return;
+    }
+
+    $buckets[$normalizedLabel] = ($buckets[$normalizedLabel] ?? 0) + $amount;
+}
+
+function buildDashboardBreakdownItems(array $counts, int $total, int $limit = 0): array
+{
+    $items = [];
+
+    foreach ($counts as $label => $count) {
+        $count = (int) $count;
+        if ($count <= 0) {
+            continue;
+        }
+
+        $percentage = $total > 0 ? ($count / $total) * 100 : 0;
+        $percentageLabel = rtrim(rtrim(number_format($percentage, 1), "0"), ".");
+
+        $items[] = [
+            "label" => (string) $label,
+            "count" => $count,
+            "percentage" => $percentage,
+            "percentage_label" => $percentageLabel . "%",
+            "bar_width" => min(100, max(12, (int) round($percentage))),
+        ];
+    }
+
+    usort($items, static function (array $left, array $right): int {
+        $countComparison = $right["count"] <=> $left["count"];
+        if ($countComparison !== 0) {
+            return $countComparison;
+        }
+
+        return strcasecmp((string) $left["label"], (string) $right["label"]);
+    });
+
+    if ($limit > 0) {
+        $items = array_slice($items, 0, $limit);
+    }
+
+    return $items;
+}
+
+function buildMonitoringDashboardData(
+    array $records,
+    array $statusOptions,
+    array $processedTypeOptions,
+    array $classificationOptions
+): array {
+    $totalRecords = count($records);
+    $statusCounts = array_fill_keys($statusOptions, 0);
+    $processedTypeCounts = array_fill_keys($processedTypeOptions, 0);
+    $classificationCounts = [];
+    $moduleCounts = [];
+    $branchCounts = [];
+    $dealerCounts = [];
+    $metrics = [
+        "total_records" => $totalRecords,
+        "data_correction_records" => 0,
+        "escalation_records" => 0,
+        "linked_tickets" => 0,
+    ];
+
+    foreach ($records as $row) {
+        $statusValue = (string) ($row["status"] ?? "");
+        $processedTypeValue = (string) ($row["processed_type"] ?? "");
+        $classificationValue = trim((string) ($row["classification"] ?? ""));
+        $moduleValue = trim((string) ($row["module"] ?? ""));
+        $branchValue = trim((string) ($row["branch"] ?? ""));
+        $dealerValue = trim((string) ($row["dealer"] ?? ""));
+
+        foreach ($statusOptions as $option) {
+            if (containsMultiValueText($statusValue, $option)) {
+                incrementDashboardBucket($statusCounts, $option);
+            }
+        }
+
+        foreach ($processedTypeOptions as $option) {
+            if (containsMultiValueText($processedTypeValue, $option)) {
+                incrementDashboardBucket($processedTypeCounts, $option);
+            }
+        }
+
+        if (containsMultiValueText($processedTypeValue, "Data Correction")) {
+            $metrics["data_correction_records"]++;
+        }
+
+        if (((int) ($row["data_correction_offense_count"] ?? 0)) >= 3) {
+            $metrics["escalation_records"]++;
+        }
+
+        if (trim((string) ($row["ticket"] ?? "")) !== "") {
+            $metrics["linked_tickets"]++;
+        }
+
+        incrementDashboardBucket(
+            $classificationCounts,
+            $classificationValue !== "" ? $classificationValue : "Unspecified"
+        );
+        incrementDashboardBucket(
+            $moduleCounts,
+            $moduleValue !== "" ? $moduleValue : "Unspecified"
+        );
+        incrementDashboardBucket(
+            $branchCounts,
+            $branchValue !== "" ? $branchValue : "Unspecified"
+        );
+        incrementDashboardBucket(
+            $dealerCounts,
+            $dealerValue !== "" ? $dealerValue : "Unspecified"
+        );
+    }
+
+    foreach ($classificationOptions as $option) {
+        if (!array_key_exists($option, $classificationCounts)) {
+            $classificationCounts[$option] = 0;
+        }
+    }
+
+    return [
+        "metrics" => $metrics,
+        "status_breakdown" => buildDashboardBreakdownItems($statusCounts, $totalRecords),
+        "processed_type_breakdown" => buildDashboardBreakdownItems($processedTypeCounts, $totalRecords),
+        "classification_breakdown" => buildDashboardBreakdownItems($classificationCounts, $totalRecords),
+        "module_breakdown" => buildDashboardBreakdownItems($moduleCounts, $totalRecords, 6),
+        "branch_breakdown" => buildDashboardBreakdownItems($branchCounts, $totalRecords, 6),
+        "dealer_breakdown" => buildDashboardBreakdownItems($dealerCounts, $totalRecords, 6),
+    ];
+}
+
+function buildTicketDashboardData(array $records, array $ticketStatusOptions): array
+{
+    $totalRecords = count($records);
+    $statusCounts = array_fill_keys($ticketStatusOptions, 0);
+    $metrics = [
+        "total_tickets" => $totalRecords,
+        "active_tickets" => 0,
+        "resolved_tickets" => 0,
+        "aging_tickets" => 0,
+        "oldest_active_days" => 0,
+    ];
+    $timezone = new DateTimeZone("Asia/Manila");
+    $now = new DateTimeImmutable("now", $timezone);
+
+    foreach ($records as $row) {
+        $ticketStatus = trim((string) ($row["ticket_status"] ?? ""));
+        if ($ticketStatus !== "") {
+            incrementDashboardBucket($statusCounts, $ticketStatus);
+        }
+
+        $isResolved = isLockedTicketStatus($ticketStatus);
+        if ($isResolved) {
+            $metrics["resolved_tickets"]++;
+        } else {
+            $metrics["active_tickets"]++;
+        }
+
+        $dateCreated = trim((string) ($row["date_created"] ?? ""));
+        if ($dateCreated === "" || $isResolved) {
+            continue;
+        }
+
+        $ageDays = calculateTicketAgeDays($dateCreated, $now->format("Y-m-d H:i:s"));
+        if ($ageDays >= 7) {
+            $metrics["aging_tickets"]++;
+        }
+
+        if ($ageDays > $metrics["oldest_active_days"]) {
+            $metrics["oldest_active_days"] = $ageDays;
+        }
+    }
+
+    return [
+        "metrics" => $metrics,
+        "status_breakdown" => buildDashboardBreakdownItems($statusCounts, $totalRecords),
+    ];
 }

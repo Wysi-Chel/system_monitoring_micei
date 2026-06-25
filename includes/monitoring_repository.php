@@ -59,6 +59,11 @@ function normalizePositiveInt($value, int $default): int
     return $default;
 }
 
+function normalizeBooleanFilter($value): bool
+{
+    return in_array((string) $value, ["1", "true", "yes", "on"], true);
+}
+
 function escapeLikeTerm(string $value): string
 {
     return str_replace(["\\", "%", "_"], ["\\\\", "\\%", "\\_"], $value);
@@ -78,6 +83,7 @@ function buildMonitoringFilters(array $input, array $company, array $filterOptio
     $filters = [
         "search" => "",
         "identification_number" => normalizeIdentificationNumberFilter($input["id_number"] ?? ""),
+        "user_name" => normalizeSearchFilter($input["user"] ?? $input["user_name"] ?? ""),
         "month" => normalizeMonthFilter($input["month"] ?? ""),
         "date_from" => "",
         "date_to" => "",
@@ -86,6 +92,8 @@ function buildMonitoringFilters(array $input, array $company, array $filterOptio
         "department" => "",
         "module" => "",
         "status" => normalizeAllowedFilter($input["status"] ?? "", $filterOptions["status"] ?? []),
+        "data_correction_only" => normalizeBooleanFilter($input["data_correction"] ?? ""),
+        "escalation_only" => normalizeBooleanFilter($input["escalation"] ?? ""),
         "page" => normalizePositiveInt($input["page"] ?? 1, 1),
         "per_page" => normalizePositiveInt($input["per_page"] ?? $defaultPerPage, $defaultPerPage),
     ];
@@ -172,6 +180,11 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
         $bindings["identification_number"] = "%" . escapeLikeTerm($filters["identification_number"]) . "%";
     }
 
+    if (($filters["user_name"] ?? "") !== "") {
+        $conditions[] = "UPPER(TRIM(COALESCE(user_name, ''))) LIKE :user_name ESCAPE '\\\\'";
+        $bindings["user_name"] = "%" . escapeLikeTerm(uppercaseText($filters["user_name"])) . "%";
+    }
+
     if (($filters["month"] ?? "") !== "") {
         $monthStart = DateTimeImmutable::createFromFormat("Y-m-d", $filters["month"] . "-01");
         if ($monthStart instanceof DateTimeImmutable) {
@@ -215,6 +228,11 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
     if ($filters["status"] !== "") {
         $conditions[] = "CONCAT(',', REPLACE(COALESCE(status, ''), ', ', ','), ',') LIKE :status ESCAPE '\\\\'";
         $bindings["status"] = "%," . escapeLikeTerm($filters["status"]) . ",%";
+    }
+
+    if (!empty($filters["data_correction_only"])) {
+        $conditions[] = "UPPER(CONCAT(',', REPLACE(COALESCE(processed_type, ''), ', ', ','), ',')) LIKE :data_correction ESCAPE '\\\\'";
+        $bindings["data_correction"] = "%," . strtoupper(escapeLikeTerm("Data Correction")) . ",%";
     }
 
     return $conditions === [] ? "" : " WHERE " . implode(" AND ", $conditions);
@@ -437,6 +455,30 @@ function fetchMonitoringRecordByIdentificationNumber(PDO $pdo, string $tableName
 
     $record = $stmt->fetch(PDO::FETCH_ASSOC);
     return $record === false ? null : $record;
+}
+
+function fetchMonitoringRecordsByUserName(
+    PDO $pdo,
+    string $tableNameSql,
+    string $userName,
+    string $orderDirection = "DESC"
+): array {
+    $normalizedUserName = trim($userName);
+    if ($normalizedUserName === "") {
+        return [];
+    }
+
+    $direction = strtoupper($orderDirection) === "ASC" ? "ASC" : "DESC";
+    $stmt = $pdo->prepare(
+        "SELECT *
+         FROM {$tableNameSql}
+         WHERE UPPER(TRIM(COALESCE(user_name, ''))) = :user_name
+         ORDER BY transaction_date {$direction}, id {$direction}"
+    );
+    $stmt->bindValue(":user_name", uppercaseText($normalizedUserName), PDO::PARAM_STR);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 function updateMonitoringRecordActionTaken(PDO $pdo, string $tableNameSql, int $id, string $actionTaken): void

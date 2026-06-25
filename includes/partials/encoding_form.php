@@ -1,4 +1,4 @@
-<section class="card">
+<section class="card" id="encode-section">
     <h2>Encode New Record</h2>
 
     <?php if (!empty($validationErrorMessage)): ?>
@@ -92,12 +92,7 @@
                     <?php if (companySupportsTicketMonitoring($company)): ?>
                     <div class="inline-input-row">
                         <input type="text" id="ticket" name="ticket">
-                        <a
-                            href="<?= e($ticketMonitoringUrl) ?>"
-                            class="button-link secondary inline-action-button"
-                            id="ticket-monitoring-link"
-                            data-base-href="<?= e($ticketMonitoringUrl) ?>"
-                        >Ticket Monitoring</a>
+                        
                     </div>
                     <?php else: ?>
                     <input type="text" id="ticket" name="ticket">
@@ -126,7 +121,7 @@
 
                 <div class="field">
                     <label for="processed-by">Processed By</label>
-                    <input type="text" id="processed-by" name="processed_by" placeholder="e.g., ITA">
+                    <input type="text" id="processed-by" name="processed_by" placeholder="">
                 </div>
 
                 <div class="field field-span-2">
@@ -161,7 +156,7 @@
         </section>
 
         <div class="buttons">
-            <button type="submit" class="primary">Enter / Save to Database</button>
+            <button type="submit" class="primary">Save</button>
             <button type="reset" class="secondary">Clear Form</button>
         </div>
     </form>
