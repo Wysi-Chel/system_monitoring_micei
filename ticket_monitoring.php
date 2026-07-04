@@ -1,4 +1,6 @@
 <?php
+require __DIR__ . "/includes/auth.php";
+requireMonitoringAuthentication();
 require "config.php";
 require __DIR__ . "/includes/monitoring_options.php";
 require __DIR__ . "/includes/monitoring_helpers.php";
@@ -83,7 +85,10 @@ $ticketFormDefaults = [
                 <h2>Encode Ticket Record</h2>
                 <!-- <p class="note summary-note">Enter the basic ticket details below. New ticket records are saved with an initial status of <strong>Open</strong>.</p> -->
             </div>
-            <a href="<?= e($mainPageUrl) ?>" class="button-link secondary">Back to System Monitoring</a>
+            <a href="<?= e($mainPageUrl) ?>" class="button-link secondary icon-button" aria-label="Back to system monitoring" title="Back to system monitoring">
+                <?= iconSvg("arrow-left") ?>
+                <span class="sr-only">Back to system monitoring</span>
+            </a>
         </div>
 
         <form action="save_ticket_monitoring.php" method="POST" id="ticket-record-form" class="ticket-record-form">
@@ -124,7 +129,7 @@ $ticketFormDefaults = [
                     </div>
 
                     <div class="field">
-                        <label for="ticket-number">Ticket Number</label>
+                        <label for="ticket-number">Ticket number</label>
                         <input type="text" id="ticket-number" name="ticket_number" value="<?= e($ticketFormDefaults["ticket_number"]) ?>" required>
                     </div>
 
@@ -139,7 +144,7 @@ $ticketFormDefaults = [
                     </div>
 
                     <div class="field">
-                        <label for="ticket-date-created">Date Created</label>
+                        <label for="ticket-date-created">Date created</label>
                         <input type="date" id="ticket-date-created" name="date_created" value="<?= e($ticketFormDefaults["date_created"]) ?>" required>
                     </div>
 
@@ -149,15 +154,21 @@ $ticketFormDefaults = [
                     </div>
 
                     <div class="field field-span-2 ticket-description-field">
-                        <label for="ticket-description">Description of the Ticket</label>
+                        <label for="ticket-description">Description of the ticket</label>
                         <textarea id="ticket-description" name="ticket_description" required><?= e($ticketFormDefaults["ticket_description"]) ?></textarea>
                     </div>
                 </div>
             </section>
 
             <div class="buttons ticket-form-actions">
-                <button type="submit" class="primary">Save Ticket Record</button>
-                <button type="reset" class="secondary">Clear Form</button>
+                <button type="submit" class="primary icon-button" aria-label="Save ticket record" title="Save ticket record">
+                    <?= iconSvg("save") ?>
+                    <span class="sr-only">Save ticket record</span>
+                </button>
+                <button type="reset" class="secondary icon-button" aria-label="Clear form" title="Clear form">
+                    <?= iconSvg("x") ?>
+                    <span class="sr-only">Clear form</span>
+                </button>
             </div>
         </form>
     </section>
@@ -167,7 +178,10 @@ $ticketFormDefaults = [
             <div>
                 <h2>Ticket Monitoring Summary</h2>
             </div>
-            <a href="<?= e($exportUrl) ?>" class="button-link secondary">Export Filtered Excel</a>
+            <a href="<?= e($exportUrl) ?>" class="button-link secondary icon-button" aria-label="Export filtered Excel" title="Export filtered Excel">
+                <?= iconSvg("download") ?>
+                <span class="sr-only">Export filtered Excel</span>
+            </a>
         </div>
 
         <form action="ticket_monitoring.php#ticket-summary" method="GET" class="summary-filter-form">
@@ -175,7 +189,7 @@ $ticketFormDefaults = [
 
             <div class="summary-filter-grid">
                 <div class="field">
-                    <label for="ticket-search">Ticket Search</label>
+                    <label for="ticket-search">Ticket search</label>
                     <input type="search" id="ticket-search" name="q" value="<?= e($filters["search"]) ?>" placeholder="Enter ticket number, module, or description">
                 </div>
 
@@ -216,8 +230,14 @@ $ticketFormDefaults = [
 
             <div class="summary-toolbar">
                 <div class="summary-actions">
-                    <button type="submit" class="primary">Apply Filters</button>
-                    <a href="<?= e($clearFiltersUrl . $ticketSummaryAnchor) ?>" class="button-link secondary">Clear Filters</a>
+                    <button type="submit" class="primary icon-button" aria-label="Apply filters" title="Apply filters">
+                        <?= iconSvg("search") ?>
+                        <span class="sr-only">Apply filters</span>
+                    </button>
+                    <a href="<?= e($clearFiltersUrl . $ticketSummaryAnchor) ?>" class="button-link secondary icon-button" aria-label="Clear filters" title="Clear filters">
+                        <?= iconSvg("x") ?>
+                        <span class="sr-only">Clear filters</span>
+                    </a>
                 </div>
 
                 <div class="results-meta">
@@ -291,7 +311,7 @@ $ticketFormDefaults = [
                                 title="Edit Status"
                                 onchange="if (this.value !== '') { this.form.submit(); }"
                             >
-                                <option value="" selected disabled>Update</option>
+                                <option value="" selected disabled>&#9881;</option>
                                 <?php foreach ($ticketStatusOptions as $option): ?>
                                     <?php if (($row["ticket_status"] ?? "") === $option) { continue; } ?>
                                 <option value="<?= e($option) ?>"><?= e($option) ?></option>
@@ -313,11 +333,11 @@ $ticketFormDefaults = [
 
                     <div class="summary-card-grid">
                         <div class="summary-card-field">
-                            <div class="summary-card-label">Date Created</div>
+                            <div class="summary-card-label">Date created</div>
                             <div class="summary-card-value"><?= e($dateCreatedValue !== "" ? $dateCreatedValue : "N/A") ?></div>
                         </div>
                         <div class="summary-card-field">
-                            <div class="summary-card-label">Created By</div>
+                            <div class="summary-card-label">Created by</div>
                             <div class="summary-card-value"><?= e($createdByValue !== "" ? $createdByValue : "N/A") ?></div>
                         </div>
                         <div class="summary-card-field">
@@ -333,15 +353,15 @@ $ticketFormDefaults = [
                             <div class="summary-card-value"><?= e($branchValue !== "" ? $branchValue : "N/A") ?></div>
                         </div>
                     <div class="summary-card-field">
-                        <div class="summary-card-label">Ticket Age</div>
+                        <div class="summary-card-label">Ticket age</div>
                         <div class="summary-card-value"><?= e($ticketAgeValue !== "" ? $ticketAgeValue : "N/A") ?></div>
                     </div>
                     <div class="summary-card-field">
-                        <div class="summary-card-label">Date Resolved</div>
+                        <div class="summary-card-label">Date resolved</div>
                         <div class="summary-card-value"><?= e($resolvedValue !== "" ? $resolvedValue : "N/A") ?></div>
                     </div>
                     <div class="summary-card-field">
-                        <div class="summary-card-label">Encoded At</div>
+                        <div class="summary-card-label">Encoded at</div>
                         <div class="summary-card-value"><?= e($encodedAtValue !== "" ? $encodedAtValue : "N/A") ?></div>
                     </div>
                     <div class="summary-card-field summary-card-field-full">
@@ -357,9 +377,15 @@ $ticketFormDefaults = [
         <?php if ($pagination["total_pages"] > 1): ?>
         <nav class="pagination" aria-label="Ticket monitoring pages">
             <?php if ($pagination["has_previous"]): ?>
-            <a href="<?= e(buildUrl("ticket_monitoring.php", $ticketQueryParams, ["page" => $pagination["page"] - 1]) . $ticketSummaryAnchor) ?>" class="button-link secondary">Previous</a>
+            <a href="<?= e(buildUrl("ticket_monitoring.php", $ticketQueryParams, ["page" => $pagination["page"] - 1]) . $ticketSummaryAnchor) ?>" class="button-link secondary icon-button" aria-label="Previous page" title="Previous page">
+                <?= iconSvg("arrow-left") ?>
+                <span class="sr-only">Previous page</span>
+            </a>
             <?php else: ?>
-            <span class="button-link secondary disabled" aria-disabled="true">Previous</span>
+            <span class="button-link secondary disabled icon-button" aria-disabled="true" aria-label="Previous page" title="Previous page">
+                <?= iconSvg("arrow-left") ?>
+                <span class="sr-only">Previous page</span>
+            </span>
             <?php endif; ?>
 
             <div class="page-numbers">
@@ -373,9 +399,15 @@ $ticketFormDefaults = [
             </div>
 
             <?php if ($pagination["has_next"]): ?>
-            <a href="<?= e(buildUrl("ticket_monitoring.php", $ticketQueryParams, ["page" => $pagination["page"] + 1]) . $ticketSummaryAnchor) ?>" class="button-link secondary">Next</a>
+            <a href="<?= e(buildUrl("ticket_monitoring.php", $ticketQueryParams, ["page" => $pagination["page"] + 1]) . $ticketSummaryAnchor) ?>" class="button-link secondary icon-button" aria-label="Next page" title="Next page">
+                <?= iconSvg("arrow-right") ?>
+                <span class="sr-only">Next page</span>
+            </a>
             <?php else: ?>
-            <span class="button-link secondary disabled" aria-disabled="true">Next</span>
+            <span class="button-link secondary disabled icon-button" aria-disabled="true" aria-label="Next page" title="Next page">
+                <?= iconSvg("arrow-right") ?>
+                <span class="sr-only">Next page</span>
+            </span>
             <?php endif; ?>
         </nav>
         <?php endif; ?>

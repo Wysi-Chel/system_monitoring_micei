@@ -44,6 +44,7 @@ function normalizeMonthFilter($value): string
     return $month && $month->format("Y-m") === $value ? $value : "";
 }
 
+
 function normalizeAllowedFilter($value, array $allowedOptions): string
 {
     $value = trim((string) $value);
@@ -85,6 +86,7 @@ function buildMonitoringFilters(array $input, array $company, array $filterOptio
         "identification_number" => normalizeIdentificationNumberFilter($input["id_number"] ?? ""),
         "user_name" => normalizeSearchFilter($input["user"] ?? $input["user_name"] ?? ""),
         "month" => normalizeMonthFilter($input["month"] ?? ""),
+        "day" => normalizeDateFilter($input["day"] ?? ""),
         "date_from" => "",
         "date_to" => "",
         "branch" => "",
@@ -92,6 +94,7 @@ function buildMonitoringFilters(array $input, array $company, array $filterOptio
         "department" => "",
         "module" => "",
         "status" => normalizeAllowedFilter($input["status"] ?? "", $filterOptions["status"] ?? []),
+        "disciplinary_action" => normalizeAllowedFilter($input["action"] ?? $input["disciplinary_action"] ?? "", $filterOptions["action"] ?? []),
         "data_correction_only" => normalizeBooleanFilter($input["data_correction"] ?? ""),
         "escalation_only" => normalizeBooleanFilter($input["escalation"] ?? ""),
         "page" => normalizePositiveInt($input["page"] ?? 1, 1),
@@ -195,6 +198,11 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
         }
     }
 
+    if (($filters["day"] ?? "") !== "") {
+        $conditions[] = "date_recorded = :day";
+        $bindings["day"] = $filters["day"];
+    }
+
     if ($filters["date_from"] !== "") {
         $conditions[] = "date_recorded >= :date_from";
         $bindings["date_from"] = $filters["date_from"];
@@ -231,8 +239,8 @@ function buildMonitoringWhereClause(array $filters, array &$bindings): string
     }
 
     if (!empty($filters["data_correction_only"])) {
-        $conditions[] = "UPPER(CONCAT(',', REPLACE(COALESCE(processed_type, ''), ', ', ','), ',')) LIKE :data_correction ESCAPE '\\\\'";
-        $bindings["data_correction"] = "%," . strtoupper(escapeLikeTerm("Data Correction")) . ",%";
+        $conditions[] = "UPPER(TRIM(COALESCE(classification, ''))) = :data_correction";
+        $bindings["data_correction"] = uppercaseText("User Error");
     }
 
     return $conditions === [] ? "" : " WHERE " . implode(" AND ", $conditions);
@@ -330,7 +338,45 @@ function fetchMonitoringRecords(
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function fetchDataCorrectionOffenseNumbersByRecordId(PDO $pdo, string $tableNameSql, array $userNames): array
+function filterMonitoringRecordsByDisciplinaryAction(array $records, array $filters): array
+{
+    $selectedAction = trim((string) ($filters["disciplinary_action"] ?? ""));
+    if ($selectedAction === "") {
+        return $records;
+    }
+
+    $selectedActionKey = uppercaseText($selectedAction);
+    $legacyVerbalMemoKey = uppercaseText("Vocal Memo");
+
+    return array_values(array_filter(
+        $records,
+        static function (array $row) use ($selectedActionKey, $legacyVerbalMemoKey): bool {
+            $actionValues = [
+                trim((string) ($row["disciplinary_action"] ?? "")),
+                trim((string) ($row["action_taken"] ?? "")),
+                trim((string) ($row["offense"] ?? "")),
+            ];
+
+            foreach ($actionValues as $actionValue) {
+                if ($actionValue === "") {
+                    continue;
+                }
+
+                $actionKey = uppercaseText($actionValue);
+                if (
+                    $actionKey === $selectedActionKey
+                    || ($selectedActionKey === uppercaseText("Verbal Memo") && $actionKey === $legacyVerbalMemoKey)
+                ) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    ));
+}
+
+function fetchDataCorrectionOffenseStatesByRecordId(PDO $pdo, string $tableNameSql, array $userNames): array
 {
     $normalizedUserNames = [];
 
@@ -347,10 +393,9 @@ function fetchDataCorrectionOffenseNumbersByRecordId(PDO $pdo, string $tableName
         return [];
     }
 
-    $processedTypeNeedle = strtoupper(escapeLikeTerm("Data Correction"));
     $placeholders = [];
     $bindings = [
-        ":processed_type" => "%," . $processedTypeNeedle . ",%",
+        ":classification" => uppercaseText("User Error"),
     ];
 
     foreach ($normalizedUserNames as $index => $userName) {
@@ -359,10 +404,14 @@ function fetchDataCorrectionOffenseNumbersByRecordId(PDO $pdo, string $tableName
         $bindings[$placeholder] = $userName;
     }
 
-    $sql = "SELECT id, UPPER(TRIM(user_name)) AS user_key
+    $sql = "SELECT id,
+                   UPPER(TRIM(user_name)) AS user_key,
+                   disciplinary_action,
+                   action_taken,
+                   offense
             FROM {$tableNameSql}
             WHERE COALESCE(TRIM(user_name), '') <> ''
-              AND UPPER(CONCAT(',', REPLACE(COALESCE(processed_type, ''), ', ', ','), ',')) LIKE :processed_type ESCAPE '\\\\'
+              AND UPPER(TRIM(COALESCE(classification, ''))) = :classification
               AND UPPER(TRIM(user_name)) IN (" . implode(", ", $placeholders) . ")
             ORDER BY UPPER(TRIM(user_name)) ASC, id ASC";
 
@@ -372,8 +421,14 @@ function fetchDataCorrectionOffenseNumbersByRecordId(PDO $pdo, string $tableName
     }
 
     $stmt->execute();
-    $offenseNumbersByRecordId = [];
+    $offenseStatesByRecordId = [];
     $offenseCountsByUser = [];
+    $issuedActionsByUser = [];
+    $actionRanks = [
+        "Verbal Memo" => 1,
+        "Written Memo" => 2,
+        "Final Memo" => 3,
+    ];
 
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $userKey = trim((string) ($row["user_key"] ?? ""));
@@ -383,10 +438,65 @@ function fetchDataCorrectionOffenseNumbersByRecordId(PDO $pdo, string $tableName
         }
 
         $offenseCountsByUser[$userKey] = ($offenseCountsByUser[$userKey] ?? 0) + 1;
-        $offenseNumbersByRecordId[$recordId] = $offenseCountsByUser[$userKey];
+        $currentIssuedAction = getIssuedMonitoringMemoAction($row);
+        $cycleIssuedAction = $issuedActionsByUser[$userKey] ?? "";
+
+        $offenseStatesByRecordId[$recordId] = [
+            "count" => $offenseCountsByUser[$userKey],
+            "memo_cycle_issued_action" => $cycleIssuedAction,
+        ];
+
+        if (
+            $currentIssuedAction !== ""
+            && ($actionRanks[$currentIssuedAction] ?? 0) > ($actionRanks[$cycleIssuedAction] ?? 0)
+        ) {
+            $issuedActionsByUser[$userKey] = $currentIssuedAction;
+        }
+
+        if ($currentIssuedAction === "Final Memo") {
+            $offenseCountsByUser[$userKey] = 0;
+            $issuedActionsByUser[$userKey] = "";
+        }
+    }
+
+    return $offenseStatesByRecordId;
+}
+
+function fetchDataCorrectionOffenseNumbersByRecordId(PDO $pdo, string $tableNameSql, array $userNames): array
+{
+    $offenseStatesByRecordId = fetchDataCorrectionOffenseStatesByRecordId($pdo, $tableNameSql, $userNames);
+    $offenseNumbersByRecordId = [];
+
+    foreach ($offenseStatesByRecordId as $recordId => $state) {
+        $offenseNumbersByRecordId[$recordId] = (int) ($state["count"] ?? 0);
     }
 
     return $offenseNumbersByRecordId;
+}
+
+function fetchMonitoringUserNameSuggestions(PDO $pdo, string $tableNameSql, int $limit = 100): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT DISTINCT TRIM(user_name) AS user_name
+         FROM {$tableNameSql}
+         WHERE COALESCE(TRIM(user_name), '') <> ''
+         ORDER BY TRIM(user_name) ASC
+         LIMIT :limit"
+    );
+    $stmt->bindValue(":limit", max(1, $limit), PDO::PARAM_INT);
+    $stmt->execute();
+
+    $userNames = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $userName = trim((string) ($row["user_name"] ?? ""));
+        if ($userName === "") {
+            continue;
+        }
+
+        $userNames[uppercaseText($userName)] = $userName;
+    }
+
+    return array_values($userNames);
 }
 
 function enrichMonitoringRecordsWithDataCorrectionActions(PDO $pdo, string $tableNameSql, array $records): array
@@ -399,18 +509,24 @@ function enrichMonitoringRecordsWithDataCorrectionActions(PDO $pdo, string $tabl
         static fn(array $row): string => (string) ($row["user_name"] ?? ""),
         $records
     );
-    $offenseNumbersByRecordId = fetchDataCorrectionOffenseNumbersByRecordId($pdo, $tableNameSql, $userNames);
+    $offenseStatesByRecordId = fetchDataCorrectionOffenseStatesByRecordId($pdo, $tableNameSql, $userNames);
 
     foreach ($records as &$row) {
         $row["data_correction_offense_count"] = 0;
         $row["data_correction_alert"] = "";
+        $row["memo_cycle_issued_action"] = "";
         $row["disciplinary_action"] = trim((string) ($row["disciplinary_action"] ?? ""));
 
         if ($row["disciplinary_action"] === "") {
             $row["disciplinary_action"] = trim((string) ($row["action_taken"] ?? ""));
         }
 
-        if (!containsMultiValueText((string) ($row["processed_type"] ?? ""), "Data Correction")) {
+        $row["issued_disciplinary_action"] = getIssuedMonitoringMemoAction($row);
+        if ($row["disciplinary_action"] === "" && $row["issued_disciplinary_action"] !== "") {
+            $row["disciplinary_action"] = $row["issued_disciplinary_action"];
+        }
+
+        if (uppercaseText(trim((string) ($row["classification"] ?? ""))) !== uppercaseText("User Error")) {
             continue;
         }
 
@@ -419,13 +535,23 @@ function enrichMonitoringRecordsWithDataCorrectionActions(PDO $pdo, string $tabl
             continue;
         }
 
-        $offenseCount = (int) ($offenseNumbersByRecordId[$recordId] ?? 0);
+        $offenseState = $offenseStatesByRecordId[$recordId] ?? [];
+        $offenseCount = (int) ($offenseState["count"] ?? 0);
         if ($offenseCount <= 0) {
             continue;
         }
 
+        $resolvedAction = resolveDataCorrectionDisciplinaryAction($offenseCount);
         $row["data_correction_offense_count"] = $offenseCount;
-        $row["data_correction_alert"] = (string) $offenseCount;
+        $row["data_correction_alert"] = (string) ($resolvedAction["data_correction_alert"] ?? $offenseCount);
+        $row["memo_cycle_issued_action"] = (string) ($offenseState["memo_cycle_issued_action"] ?? "");
+
+        if ($row["disciplinary_action"] === "") {
+            $suggestedAction = resolveSuggestedMonitoringMemoAction($row, $offenseCount);
+            if ($suggestedAction !== "") {
+                $row["disciplinary_action"] = $suggestedAction;
+            }
+        }
     }
     unset($row);
 

@@ -5,6 +5,74 @@
     var ticketRecordForm = document.getElementById("ticket-record-form");
     var modal = document.getElementById("saved-modal");
     var okButton = document.getElementById("saved-modal-ok");
+    var scrollRestoreKey = "systemMonitoringSummaryScroll";
+
+    var getScrollY = function () {
+        return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    };
+
+    var saveSummaryScrollPosition = function () {
+        try {
+            window.sessionStorage.setItem(scrollRestoreKey, JSON.stringify({
+                path: window.location.pathname,
+                y: getScrollY(),
+                savedAt: Date.now()
+            }));
+        } catch (error) {
+        }
+    };
+
+    var restoreSummaryScrollPosition = function () {
+        var savedScroll = null;
+
+        try {
+            savedScroll = JSON.parse(window.sessionStorage.getItem(scrollRestoreKey) || "null");
+            window.sessionStorage.removeItem(scrollRestoreKey);
+        } catch (error) {
+            return;
+        }
+
+        if (
+            !savedScroll
+            || savedScroll.path !== window.location.pathname
+            || typeof savedScroll.y !== "number"
+            || Date.now() - savedScroll.savedAt > 60000
+        ) {
+            return;
+        }
+
+        var restore = function () {
+            window.scrollTo(0, savedScroll.y);
+        };
+
+        window.setTimeout(restore, 0);
+        window.setTimeout(restore, 100);
+    };
+
+    var isSummaryActionForm = function (form) {
+        return form && (
+            form.classList.contains("monitoring-action-form")
+            || form.classList.contains("ticket-status-form")
+        );
+    };
+
+    document.addEventListener("change", function (event) {
+        var field = event.target;
+
+        if (!field || !field.form || !isSummaryActionForm(field.form) || field.value === "") {
+            return;
+        }
+
+        saveSummaryScrollPosition();
+    }, true);
+
+    document.addEventListener("submit", function (event) {
+        if (isSummaryActionForm(event.target)) {
+            saveSummaryScrollPosition();
+        }
+    }, true);
+
+    restoreSummaryScrollPosition();
 
     var applyUppercaseBehavior = function (fields) {
         for (var index = 0; index < fields.length; index += 1) {
@@ -23,40 +91,57 @@
         var ticketInput = document.getElementById("ticket");
         var ticketMonitoringLink = document.getElementById("ticket-monitoring-link");
         var userNameInput = document.getElementById("user-name");
-        var processedTypeInputs = recordForm.querySelectorAll('input[name="processed_type[]"]');
-        var dataCorrectionMessage = "USER is required when PROCESSED TYPE includes DATA CORRECTION.";
+        var offenseInput = document.getElementById("offense");
+        var pendingStatusInput = recordForm.querySelector('input[name="status[]"][value="Pending"]');
+        var classificationInputs = recordForm.querySelectorAll('input[name="classification"]');
+        var userErrorMessage = "USER is required when CLASSIFICATION is USER ERROR.";
 
         applyUppercaseBehavior(recordUppercaseFields);
 
-        if (userNameInput && processedTypeInputs.length > 0) {
-            var updateDataCorrectionValidation = function () {
-                var hasDataCorrection = false;
+        if (offenseInput && pendingStatusInput && offenseInput.dataset.incidentReportOffense) {
+            var updateIncidentReportStatus = function () {
+                if (
+                    offenseInput.value.trim().toUpperCase() === offenseInput.dataset.incidentReportOffense.trim().toUpperCase()
+                ) {
+                    pendingStatusInput.checked = true;
+                }
+            };
 
-                for (var inputIndex = 0; inputIndex < processedTypeInputs.length; inputIndex += 1) {
+            offenseInput.addEventListener("input", updateIncidentReportStatus);
+            offenseInput.addEventListener("change", updateIncidentReportStatus);
+            recordForm.addEventListener("submit", updateIncidentReportStatus);
+            updateIncidentReportStatus();
+        }
+
+        if (userNameInput && classificationInputs.length > 0) {
+            var updateUserErrorValidation = function () {
+                var hasUserError = false;
+
+                for (var inputIndex = 0; inputIndex < classificationInputs.length; inputIndex += 1) {
                     if (
-                        processedTypeInputs[inputIndex].value === "Data Correction"
-                        && processedTypeInputs[inputIndex].checked
+                        classificationInputs[inputIndex].value === "User Error"
+                        && classificationInputs[inputIndex].checked
                     ) {
-                        hasDataCorrection = true;
+                        hasUserError = true;
                         break;
                     }
                 }
 
-                if (hasDataCorrection && !userNameInput.value.trim()) {
-                    userNameInput.setCustomValidity(dataCorrectionMessage);
+                if (hasUserError && !userNameInput.value.trim()) {
+                    userNameInput.setCustomValidity(userErrorMessage);
                     return;
                 }
 
                 userNameInput.setCustomValidity("");
             };
 
-            for (var processedTypeIndex = 0; processedTypeIndex < processedTypeInputs.length; processedTypeIndex += 1) {
-                processedTypeInputs[processedTypeIndex].addEventListener("change", updateDataCorrectionValidation);
+            for (var classificationIndex = 0; classificationIndex < classificationInputs.length; classificationIndex += 1) {
+                classificationInputs[classificationIndex].addEventListener("change", updateUserErrorValidation);
             }
 
-            userNameInput.addEventListener("input", updateDataCorrectionValidation);
-            recordForm.addEventListener("submit", updateDataCorrectionValidation);
-            updateDataCorrectionValidation();
+            userNameInput.addEventListener("input", updateUserErrorValidation);
+            recordForm.addEventListener("submit", updateUserErrorValidation);
+            updateUserErrorValidation();
         }
 
         if (ticketInput && ticketMonitoringLink && ticketMonitoringLink.dataset.baseHref) {
@@ -115,10 +200,17 @@
     }
 
     if (themeToggle) {
+        var themeIconMarkup = {
+            dark: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"></path></svg><span class="sr-only">Switch to dark mode</span>',
+            light: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg><span class="sr-only">Switch to light mode</span>'
+        };
+
         var updateThemeToggle = function () {
             var isDark = root.classList.contains("dark-theme");
-            themeToggle.textContent = isDark ? "Light Mode" : "Dark Mode";
+            themeToggle.innerHTML = isDark ? themeIconMarkup.light : themeIconMarkup.dark;
             themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+            themeToggle.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+            themeToggle.setAttribute("title", isDark ? "Switch to light mode" : "Switch to dark mode");
         };
 
         themeToggle.addEventListener("click", function () {

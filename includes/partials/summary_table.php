@@ -3,6 +3,8 @@ $paginationPages = buildPaginationPages($pagination["page"], $pagination["total_
 $summaryAnchor = "#summary-section";
 $monitoringActionOptions = getMonitoringActionOptions();
 $monitoringDoneStatus = getMonitoringDoneStatus();
+$monitoringIncidentReportResolvedAction = getMonitoringIncidentReportResolvedAction();
+$userNameSuggestions = isset($userNameSuggestions) && is_array($userNameSuggestions) ? $userNameSuggestions : [];
 $formatCardValue = static function (string $value): string {
     $value = trim($value);
     return $value !== "" ? $value : "N/A";
@@ -13,7 +15,16 @@ $formatCardValue = static function (string $value): string {
         <div>
             <h2><?= e($company["system_name"]) ?> Summary</h2>
         </div>
-        <a href="<?= e($exportUrl) ?>" class="button-link secondary">Export Filtered Excel</a>
+        <div class="summary-actions">
+            <a href="<?= e($printUrl) ?>" class="button-link secondary icon-button" target="_blank" rel="noopener" aria-label="Print filtered records" title="Print filtered records">
+                <?= iconSvg("printer") ?>
+                <span class="sr-only">Print filtered records</span>
+            </a>
+            <a href="<?= e($exportUrl) ?>" class="button-link secondary icon-button" aria-label="Export filtered Excel" title="Export filtered Excel">
+                <?= iconSvg("download") ?>
+                <span class="sr-only">Export filtered Excel</span>
+            </a>
+        </div>
     </div>
 
     <form action="index.php#summary-section" method="GET" class="summary-filter-form">
@@ -29,6 +40,10 @@ $formatCardValue = static function (string $value): string {
             <div class="field">
                 <label for="filter-month">Month</label>
                 <input type="month" id="filter-month" name="month" value="<?= e($filters["month"] ?? "") ?>">
+            </div>
+            <div class="field">
+                <label for="filter-day">Day</label>
+                <input type="date" id="filter-day" name="day" value="<?= e($filters["day"] ?? "") ?>">
             </div>
 
             <?php if ($showBranchSelector): ?>
@@ -54,7 +69,7 @@ $formatCardValue = static function (string $value): string {
             </div>
 
             <div class="field">
-                <label for="filter-identification-number">ID Number</label>
+                <label for="filter-identification-number">ID number</label>
                 <input
                     type="text"
                     id="filter-identification-number"
@@ -71,8 +86,16 @@ $formatCardValue = static function (string $value): string {
                     id="filter-user-name"
                     name="user"
                     value="<?= e($filters["user_name"] ?? "") ?>"
+                    <?= $userNameSuggestions !== [] ? 'list="filter-user-name-suggestions"' : "" ?>
                     placeholder=""
                 >
+                <?php if ($userNameSuggestions !== []): ?>
+                <datalist id="filter-user-name-suggestions">
+                    <?php foreach ($userNameSuggestions as $userNameSuggestion): ?>
+                    <option value="<?= e(uppercaseText((string) $userNameSuggestion)) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
+                <?php endif; ?>
             </div>
 
             <div class="field">
@@ -84,12 +107,28 @@ $formatCardValue = static function (string $value): string {
                     <?php endforeach; ?>
                 </select>
             </div>
+
+            <div class="field">
+                <label for="filter-action">Action</label>
+                <select id="filter-action" name="action">
+                    <option value="">All actions</option>
+                    <?php foreach ($monitoringActionOptions as $option): ?>
+                    <option value="<?= e($option) ?>"<?= ($filters["disciplinary_action"] ?? "") === $option ? " selected" : "" ?>><?= e($option) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
 
         <div class="summary-toolbar">
             <div class="summary-actions">
-                <button type="submit" class="primary">Apply Filters</button>
-                <a href="<?= e($clearFiltersUrl . $summaryAnchor) ?>" class="button-link secondary">Clear Filters</a>
+                <button type="submit" class="primary icon-button" aria-label="Apply filters" title="Apply filters">
+                    <?= iconSvg("search") ?>
+                    <span class="sr-only">Apply filters</span>
+                </button>
+                <a href="<?= e($clearFiltersUrl . $summaryAnchor) ?>" class="button-link secondary icon-button" aria-label="Clear filters" title="Clear filters">
+                    <?= iconSvg("x") ?>
+                    <span class="sr-only">Clear filters</span>
+                </a>
             </div>
 
             <div class="results-meta">
@@ -118,8 +157,22 @@ $formatCardValue = static function (string $value): string {
                 $row
             ));
             $identificationNumber = trim((string) ($row["identification_number"] ?? ""));
+            $isUserErrorClassification = isUserErrorMonitoringRecord($row);
+            $hasFinalMemo = isFinalMemoMonitoringRecord($row);
             $recordUrl = $identificationNumber !== ""
                 ? buildUrl("monitoring_record.php", $listQueryParams, ["identification_number" => $identificationNumber])
+                : "";
+            $editRecordUrl = $identificationNumber !== ""
+                ? buildUrl("monitoring_record.php", $listQueryParams, [
+                    "identification_number" => $identificationNumber,
+                    "edit" => 1,
+                ])
+                : "";
+            $memoRecordUrl = $identificationNumber !== "" && $isUserErrorClassification
+                ? buildUrl("export_memo_docx.php", [
+                    "company" => $company["key"],
+                    "identification_number" => $identificationNumber,
+                ])
                 : "";
             $titleValue = trim((string) formatSummaryValue(["key" => "user_name", "format" => "text"], $row));
             if ($titleValue === "") {
@@ -136,27 +189,31 @@ $formatCardValue = static function (string $value): string {
                 trim((string) formatSummaryValue(["key" => "branch", "format" => "text"], $row)),
             ]);
             $statusTags = splitMultiValueText((string) ($row["status"] ?? ""));
-            $processedTypeTags = splitMultiValueText((string) ($row["processed_type"] ?? ""));
+            $processedTypeTags = splitMultiValueText(formatMonitoringProcessedTypeDisplayValue($row));
             $classificationValue = trim((string) formatSummaryValue(["key" => "classification", "format" => "text"], $row));
             $ticketValue = trim((string) formatSummaryValue(["key" => "ticket", "format" => "text"], $row));
             $offenseValue = $formattedDisciplinaryAction !== ""
                 ? $formattedDisciplinaryAction
                 : trim((string) formatSummaryValue(["key" => "offense", "format" => "text"], $row));
             $rowActionOptions = [];
+            $hasIssuedMemo = getIssuedMonitoringMemoAction($row) !== "";
+            $showIncidentReportResolveButton = !$hasFinalMemo && hasPendingMonitoringIncidentReportStatus($row);
 
-            if (canMarkMonitoringRecordDone($row["status"] ?? "")) {
-                $rowActionOptions[] = $monitoringDoneStatus;
-            }
+            if (!$hasFinalMemo && !$hasIssuedMemo) {
+                if (!$showIncidentReportResolveButton && canMarkMonitoringRecordDone($row["status"] ?? "")) {
+                    $rowActionOptions[] = $monitoringDoneStatus;
+                }
 
-            if (((int) ($row["data_correction_offense_count"] ?? 0)) >= 3) {
-                foreach ($monitoringActionOptions as $option) {
-                    if (!in_array($option, $rowActionOptions, true)) {
-                        $rowActionOptions[] = $option;
+                if (((int) ($row["data_correction_offense_count"] ?? 0)) >= 1) {
+                    foreach (getAvailableMonitoringMemoActionOptions($row) as $option) {
+                        if (!in_array($option, $rowActionOptions, true)) {
+                            $rowActionOptions[] = $option;
+                        }
                     }
                 }
             }
             ?>
-        <article class="summary-card summary-card-monitoring<?= ((int) ($row["data_correction_offense_count"] ?? 0)) >= 3 ? " summary-card-alert" : "" ?>">
+        <article class="summary-card summary-card-monitoring<?= ((int) ($row["data_correction_offense_count"] ?? 0)) >= 1 ? " summary-card-alert" : "" ?>">
             <div class="summary-card-header">
                 <div class="summary-card-main">
                     <?php if ($recordUrl !== ""): ?>
@@ -172,16 +229,52 @@ $formatCardValue = static function (string $value): string {
                 </div>
 
                 <div class="summary-card-action">
-                    <?php if ($rowActionOptions !== []): ?>
+                    <?php if ($editRecordUrl !== ""): ?>
+                    <a href="<?= e($editRecordUrl) ?>" class="button-link secondary icon-button summary-card-edit-link" aria-label="Edit record" title="Edit record">
+                        <?= iconSvg("edit") ?>
+                        <span class="sr-only">Edit record</span>
+                    </a>
+                    <?php endif; ?>
+                    <?php if ($memoRecordUrl !== ""): ?>
+                    <a href="<?= e($memoRecordUrl) ?>" class="button-link secondary icon-button summary-card-edit-link" aria-label="Download draft memo" title="Download draft memo">
+                        <?= iconSvg("file-text") ?>
+                        <span class="sr-only">Download draft memo</span>
+                    </a>
+                    <?php endif; ?>
+                    <?php if ($showIncidentReportResolveButton): ?>
                     <form action="update_monitoring_action.php" method="POST" class="monitoring-action-form">
                         <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
                         <input type="hidden" name="record_id" value="<?= e($row["id"] ?? "") ?>">
+                        <input type="hidden" name="disciplinary_action" value="<?= e($monitoringIncidentReportResolvedAction) ?>">
                         <input type="hidden" name="filter_month" value="<?= e($filters["month"] ?? "") ?>">
+                        <input type="hidden" name="filter_day" value="<?= e($filters["day"] ?? "") ?>">
                         <input type="hidden" name="filter_branch" value="<?= e($filters["branch"] ?? "") ?>">
                         <input type="hidden" name="filter_dealer" value="<?= e($filters["dealer"] ?? "") ?>">
                         <input type="hidden" name="filter_identification_number" value="<?= e($filters["identification_number"] ?? "") ?>">
                         <input type="hidden" name="filter_user_name" value="<?= e($filters["user_name"] ?? "") ?>">
                         <input type="hidden" name="filter_status" value="<?= e($filters["status"] ?? "") ?>">
+                        <input type="hidden" name="filter_action" value="<?= e($filters["disciplinary_action"] ?? "") ?>">
+                        <input type="hidden" name="filter_data_correction" value="<?= !empty($filters["data_correction_only"]) ? "1" : "" ?>">
+                        <input type="hidden" name="filter_escalation" value="<?= !empty($filters["escalation_only"]) ? "1" : "" ?>">
+                        <input type="hidden" name="filter_page" value="<?= e($pagination["page"]) ?>">
+                        <button type="submit" class="secondary icon-button summary-card-edit-link" aria-label="Resolve incident report" title="Resolve incident report">
+                            <?= iconSvg("check") ?>
+                            <span class="sr-only">Resolve incident report</span>
+                        </button>
+                    </form>
+                    <?php endif; ?>
+                    <?php if ($rowActionOptions !== []): ?>
+                    <form action="update_monitoring_action.php" method="POST" class="monitoring-action-form">
+                        <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
+                        <input type="hidden" name="record_id" value="<?= e($row["id"] ?? "") ?>">
+                        <input type="hidden" name="filter_month" value="<?= e($filters["month"] ?? "") ?>">
+                        <input type="hidden" name="filter_day" value="<?= e($filters["day"] ?? "") ?>">
+                        <input type="hidden" name="filter_branch" value="<?= e($filters["branch"] ?? "") ?>">
+                        <input type="hidden" name="filter_dealer" value="<?= e($filters["dealer"] ?? "") ?>">
+                        <input type="hidden" name="filter_identification_number" value="<?= e($filters["identification_number"] ?? "") ?>">
+                        <input type="hidden" name="filter_user_name" value="<?= e($filters["user_name"] ?? "") ?>">
+                        <input type="hidden" name="filter_status" value="<?= e($filters["status"] ?? "") ?>">
+                        <input type="hidden" name="filter_action" value="<?= e($filters["disciplinary_action"] ?? "") ?>">
                         <input type="hidden" name="filter_data_correction" value="<?= !empty($filters["data_correction_only"]) ? "1" : "" ?>">
                         <input type="hidden" name="filter_escalation" value="<?= !empty($filters["escalation_only"]) ? "1" : "" ?>">
                         <input type="hidden" name="filter_page" value="<?= e($pagination["page"]) ?>">
@@ -192,7 +285,7 @@ $formatCardValue = static function (string $value): string {
                             title="Choose Action"
                             onchange="if (this.value !== '') { this.form.submit(); }"
                         >
-                            <option value="" selected disabled>Action</option>
+                            <option value="" selected disabled>&#9881;</option>
                             <?php foreach ($rowActionOptions as $option): ?>
                             <option value="<?= e($option) ?>"><?= e($option) ?></option>
                             <?php endforeach; ?>
@@ -216,7 +309,11 @@ $formatCardValue = static function (string $value): string {
                 <?php endif; ?>
 
                 <?php if (((int) ($row["data_correction_offense_count"] ?? 0)) > 0): ?>
-                <span class="dashboard-chip alert"><?= e((string) ($row["data_correction_offense_count"] ?? 0)) ?> DATA CORRECTION<?= ((int) ($row["data_correction_offense_count"] ?? 0)) > 1 ? "S" : "" ?></span>
+                <span class="dashboard-chip alert"><?= e((string) ($row["data_correction_offense_count"] ?? 0)) ?> USER ERROR<?= ((int) ($row["data_correction_offense_count"] ?? 0)) > 1 ? "S" : "" ?></span>
+                <?php endif; ?>
+
+                <?php if ($hasFinalMemo): ?>
+                <span class="dashboard-chip final-memo">Final memo issued</span>
                 <?php endif; ?>
 
                 <?php if ($ticketValue !== ""): ?>
@@ -230,23 +327,23 @@ $formatCardValue = static function (string $value): string {
                     <div class="summary-card-value"><?= e($formatCardValue((string) formatSummaryValue(["key" => "department", "format" => "text"], $row))) ?></div>
                 </div>
                 <div class="summary-card-field summary-card-field-client">
-                    <div class="summary-card-label">Client Name</div>
+                    <div class="summary-card-label">Client name</div>
                     <div class="summary-card-value"><?= e($formatCardValue((string) formatSummaryValue(["key" => "client_name", "format" => "text"], $row))) ?></div>
                 </div>
                 <div class="summary-card-field summary-card-field-reference">
-                    <div class="summary-card-label">Transaction Reference</div>
+                    <div class="summary-card-label">Transaction reference</div>
                     <div class="summary-card-value"><?= e($formatCardValue((string) formatSummaryValue(["key" => "invoice_reference", "format" => "text"], $row))) ?></div>
                 </div>
                 <div class="summary-card-field summary-card-field-approved">
-                    <div class="summary-card-label">Approved By</div>
+                    <div class="summary-card-label">Approved by</div>
                     <div class="summary-card-value"><?= e($formatCardValue((string) formatSummaryValue(["key" => "approved_by", "format" => "text"], $row))) ?></div>
                 </div>
                 <div class="summary-card-field summary-card-field-processed">
-                    <div class="summary-card-label">Processed By</div>
+                    <div class="summary-card-label">Processed by</div>
                     <div class="summary-card-value"><?= e($formatCardValue((string) formatSummaryValue(["key" => "processed_by", "format" => "text"], $row))) ?></div>
                 </div>
                 <div class="summary-card-field summary-card-field-alert">
-                    <div class="summary-card-label">Alert / Action</div>
+                    <div class="summary-card-label">Alert / action</div>
                     <div class="summary-card-value"><?= e($formatCardValue($offenseValue)) ?></div>
                 </div>
                 <div class="summary-card-field summary-card-field-reason">
@@ -262,9 +359,15 @@ $formatCardValue = static function (string $value): string {
     <?php if ($pagination["total_pages"] > 1): ?>
     <nav class="pagination" aria-label="Summary pages">
         <?php if ($pagination["has_previous"]): ?>
-        <a href="<?= e(buildUrl("index.php", $listQueryParams, ["page" => $pagination["page"] - 1]) . $summaryAnchor) ?>" class="button-link secondary">Previous</a>
+        <a href="<?= e(buildUrl("index.php", $listQueryParams, ["page" => $pagination["page"] - 1]) . $summaryAnchor) ?>" class="button-link secondary icon-button" aria-label="Previous page" title="Previous page">
+            <?= iconSvg("arrow-left") ?>
+            <span class="sr-only">Previous page</span>
+        </a>
         <?php else: ?>
-        <span class="button-link secondary disabled" aria-disabled="true">Previous</span>
+        <span class="button-link secondary disabled icon-button" aria-disabled="true" aria-label="Previous page" title="Previous page">
+            <?= iconSvg("arrow-left") ?>
+            <span class="sr-only">Previous page</span>
+        </span>
         <?php endif; ?>
 
         <div class="page-numbers">
@@ -278,9 +381,15 @@ $formatCardValue = static function (string $value): string {
         </div>
 
         <?php if ($pagination["has_next"]): ?>
-        <a href="<?= e(buildUrl("index.php", $listQueryParams, ["page" => $pagination["page"] + 1]) . $summaryAnchor) ?>" class="button-link secondary">Next</a>
+        <a href="<?= e(buildUrl("index.php", $listQueryParams, ["page" => $pagination["page"] + 1]) . $summaryAnchor) ?>" class="button-link secondary icon-button" aria-label="Next page" title="Next page">
+            <?= iconSvg("arrow-right") ?>
+            <span class="sr-only">Next page</span>
+        </a>
         <?php else: ?>
-        <span class="button-link secondary disabled" aria-disabled="true">Next</span>
+        <span class="button-link secondary disabled icon-button" aria-disabled="true" aria-label="Next page" title="Next page">
+            <?= iconSvg("arrow-right") ?>
+            <span class="sr-only">Next page</span>
+        </span>
         <?php endif; ?>
     </nav>
     <?php endif; ?>

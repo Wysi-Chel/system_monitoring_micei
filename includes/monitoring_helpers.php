@@ -11,6 +11,33 @@ function uppercaseText(string $value): string
         : strtoupper($value);
 }
 
+function iconSvg(string $name): string
+{
+    $paths = [
+        "arrow-left" => '<path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path>',
+        "arrow-right" => '<path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path>',
+        "check" => '<path d="m20 6-11 11-5-5"></path>',
+        "download" => '<path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path>',
+        "edit" => '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>',
+        "external-link" => '<path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>',
+        "file-text" => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path><path d="M16 13H8"></path><path d="M16 17H8"></path><path d="M10 9H8"></path>',
+        "home" => '<path d="m3 11 9-8 9 8"></path><path d="M5 10v11h14V10"></path><path d="M9 21v-6h6v6"></path>',
+        "moon" => '<path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"></path>',
+        "printer" => '<path d="M6 9V3h12v6"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v7H6z"></path>',
+        "refresh" => '<path d="M21 12a9 9 0 0 1-15.5 6.2"></path><path d="M3 12A9 9 0 0 1 18.5 5.8"></path><path d="M3 18v-6h6"></path><path d="M21 6v6h-6"></path>',
+        "save" => '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path>',
+        "search" => '<circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path>',
+        "send" => '<path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path>',
+        "sun" => '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>',
+        "trash" => '<path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m19 6-1 15H6L5 6"></path>',
+        "upload" => '<path d="M12 21V9"></path><path d="m7 14 5-5 5 5"></path><path d="M5 3h14"></path>',
+        "x" => '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
+    ];
+
+    $pathMarkup = $paths[$name] ?? $paths["check"];
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' . $pathMarkup . '</svg>';
+}
+
 function containsMultiValueText(?string $value, string $target): bool
 {
     $normalizedValue = trim((string) $value);
@@ -47,24 +74,134 @@ function splitMultiValueText(?string $value): array
     return array_values(array_unique($items));
 }
 
+function isUserErrorMonitoringRecord(array $row): bool
+{
+    return uppercaseText(trim((string) ($row["classification"] ?? ""))) === uppercaseText("User Error");
+}
+
+function normalizeMonitoringMemoAction(string $action): string
+{
+    return match (uppercaseText(trim($action))) {
+        uppercaseText("Verbal Memo"), uppercaseText("Vocal Memo") => "Verbal Memo",
+        uppercaseText("Written Memo") => "Written Memo",
+        uppercaseText("Final Memo") => "Final Memo",
+        default => "",
+    };
+}
+
+function getMonitoringMemoActionRank(string $action): int
+{
+    return match (normalizeMonitoringMemoAction($action)) {
+        "Verbal Memo" => 1,
+        "Written Memo" => 2,
+        "Final Memo" => 3,
+        default => 0,
+    };
+}
+
+function getIssuedMonitoringMemoAction(array $row): string
+{
+    $actionValues = [];
+
+    if (array_key_exists("issued_disciplinary_action", $row)) {
+        $actionValues[] = trim((string) ($row["issued_disciplinary_action"] ?? ""));
+    } else {
+        foreach (["disciplinary_action", "action_taken", "offense"] as $key) {
+            $actionValues[] = trim((string) ($row[$key] ?? ""));
+        }
+    }
+
+    $issuedAction = "";
+    $issuedActionRank = 0;
+
+    foreach ($actionValues as $actionValue) {
+        $memoAction = normalizeMonitoringMemoAction($actionValue);
+        $memoActionRank = getMonitoringMemoActionRank($memoAction);
+        if ($memoAction === "" || $memoActionRank <= $issuedActionRank) {
+            continue;
+        }
+
+        $issuedAction = $memoAction;
+        $issuedActionRank = $memoActionRank;
+    }
+
+    return $issuedAction;
+}
+
+function formatMonitoringMemoActionStatusDisplayValue(array $row): string
+{
+    $issuedAction = getIssuedMonitoringMemoAction($row);
+    if ($issuedAction !== "") {
+        return $issuedAction . " - Issued";
+    }
+
+    foreach (["disciplinary_action", "action_taken", "offense"] as $key) {
+        $memoAction = normalizeMonitoringMemoAction((string) ($row[$key] ?? ""));
+        if ($memoAction !== "") {
+            return $memoAction . " - To issue";
+        }
+    }
+
+    return "";
+}
+
+function isFinalMemoMonitoringRecord(array $row): bool
+{
+    return getIssuedMonitoringMemoAction($row) === "Final Memo";
+}
+
+function getAvailableMonitoringMemoActionOptions(array $row): array
+{
+    if (getIssuedMonitoringMemoAction($row) !== "") {
+        return [];
+    }
+
+    $cycleIssuedAction = trim((string) ($row["memo_cycle_issued_action"] ?? ""));
+
+    return match ($cycleIssuedAction) {
+        "Final Memo" => [],
+        "Written Memo" => ["Final Memo"],
+        "Verbal Memo" => ["Written Memo", "Final Memo"],
+        default => getMonitoringActionOptions(),
+    };
+}
+
+function resolveSuggestedMonitoringMemoAction(array $row, int $count): string
+{
+    $options = getAvailableMonitoringMemoActionOptions($row);
+    if ($options !== []) {
+        return $options[0];
+    }
+
+    $resolvedAction = resolveDataCorrectionDisciplinaryAction($count);
+    return (string) ($resolvedAction["disciplinary_action"] ?? "");
+}
+
 function resolveMonitoringValidationErrorMessage(?string $errorCode): ?string
 {
     return match (trim((string) $errorCode)) {
-        "data_correction_user_required" => "USER IS REQUIRED WHEN PROCESSED TYPE INCLUDES DATA CORRECTION.",
+        "data_correction_user_required" => "USER IS REQUIRED WHEN CLASSIFICATION IS USER ERROR.",
+        "user_error_user_required" => "USER IS REQUIRED WHEN CLASSIFICATION IS USER ERROR.",
         "incident_image_invalid_type" => "ONLY JPG, PNG, WEBP, OR GIF INCIDENT REPORT IMAGES ARE ALLOWED.",
         "incident_image_too_large" => "INCIDENT REPORT IMAGE MUST BE 5 MB OR SMALLER.",
         "incident_image_upload_failed" => "INCIDENT REPORT IMAGE COULD NOT BE UPLOADED.",
         "incident_image_storage_failed" => "INCIDENT REPORT IMAGE COULD NOT BE SAVED.",
         "record_save_failed" => "THE RECORD COULD NOT BE SAVED RIGHT NOW.",
+        "record_update_failed" => "THE RECORD COULD NOT BE UPDATED RIGHT NOW.",
         default => null,
     };
 }
 
-function renderOptionButtons(string $name, array $options, bool $allowMultiple = false): void
+function renderOptionButtons(string $name, array $options, bool $allowMultiple = false, $selectedValues = []): void
 {
     $groupRole = $allowMultiple ? "group" : "radiogroup";
     $inputType = $allowMultiple ? "checkbox" : "radio";
     $inputName = $allowMultiple ? $name . "[]" : $name;
+    $selectedValues = is_array($selectedValues) ? $selectedValues : [$selectedValues];
+    $selectedKeys = array_map(
+        static fn($item): string => uppercaseText(trim((string) $item)),
+        $selectedValues
+    );
 
     echo '<div class="option-group" role="' . $groupRole . '" aria-label="' . e($name) . '">';
 
@@ -74,9 +211,10 @@ function renderOptionButtons(string $name, array $options, bool $allowMultiple =
         $safeName = e($inputName);
         $safeOption = e($option);
         $displayOption = e(uppercaseText((string) $option));
+        $isChecked = in_array(uppercaseText(trim((string) $option)), $selectedKeys, true);
 
         echo '<label class="option-button" for="' . $safeId . '">';
-        echo '<input type="' . $inputType . '" id="' . $safeId . '" name="' . $safeName . '" value="' . $safeOption . '">';
+        echo '<input type="' . $inputType . '" id="' . $safeId . '" name="' . $safeName . '" value="' . $safeOption . '"' . ($isChecked ? ' checked' : '') . '>';
         echo '<span>' . $displayOption . '</span>';
         echo '</label>';
     }
@@ -112,6 +250,8 @@ function buildMonitoringListQueryParams(string $companyKey, array $filters, bool
         "identification_number" => "id_number",
         "user_name" => "user",
         "month" => "month",
+        "day" => "day",
+        "disciplinary_action" => "action",
         "date_from" => "date_from",
         "date_to" => "date_to",
         "branch" => "branch",
@@ -271,6 +411,7 @@ function formatSummaryValue(array $column, array $row): string
 {
     $value = $row[$column["key"]] ?? "";
     $uppercaseSummaryKeys = ["identification_number", "user_name", "client_name", "reason", "processed_type", "classification", "status", "offense", "disciplinary_action", "action_taken"];
+    $columnKey = (string) ($column["key"] ?? "");
 
     switch ($column["format"] ?? "text") {
         case "date":
@@ -290,14 +431,53 @@ function formatSummaryValue(array $column, array $row): string
             return formatTicketAgeValue($row);
 
         default:
-            $textValue = (string) $value;
+            if ($columnKey === "disciplinary_action") {
+                $memoStatusValue = formatMonitoringMemoActionStatusDisplayValue($row);
+                if ($memoStatusValue !== "") {
+                    return uppercaseText($memoStatusValue);
+                }
+            }
 
-            if (in_array((string) ($column["key"] ?? ""), $uppercaseSummaryKeys, true)) {
+            $textValue = $columnKey === "processed_type"
+                ? formatMonitoringProcessedTypeDisplayValue($row)
+                : (string) $value;
+
+            if (in_array($columnKey, $uppercaseSummaryKeys, true)) {
                 return uppercaseText($textValue);
             }
 
             return $textValue;
     }
+}
+
+function formatMonitoringProcessedTypeDisplayValue(array $row): string
+{
+    $processedTypeValue = trim((string) ($row["processed_type"] ?? ""));
+    if ($processedTypeValue === "") {
+        return "";
+    }
+
+    if (uppercaseText(trim((string) ($row["classification"] ?? ""))) !== uppercaseText("User Error")) {
+        return $processedTypeValue;
+    }
+
+    $processedTypeValues = splitMultiValueText($processedTypeValue);
+    if ($processedTypeValues === []) {
+        return "";
+    }
+
+    $displayValues = [];
+    foreach ($processedTypeValues as $processedType) {
+        $displayValue = containsMultiValueText($processedType, "Data Correction")
+            ? "User Error"
+            : $processedType;
+
+        if (!in_array($displayValue, $displayValues, true)) {
+            $displayValues[] = $displayValue;
+        }
+    }
+
+    return implode(", ", $displayValues);
 }
 
 function resolveDataCorrectionDisciplinaryAction(int $count): array
@@ -309,31 +489,41 @@ function resolveDataCorrectionDisciplinaryAction(int $count): array
         ];
     }
 
-    $alertMessage = "Data Correction Errors: {$count}";
+    $alertMessage = "User Error Count: {$count}";
+
+    if ($count >= 5) {
+        return [
+            "data_correction_alert" => $alertMessage . " - Final memo threshold",
+            "disciplinary_action" => "Final Memo",
+        ];
+    }
 
     if ($count > 3) {
         return [
-            "data_correction_alert" => $alertMessage . " - Exceeded 3-error limit",
+            "data_correction_alert" => $alertMessage . " - Written memo threshold",
             "disciplinary_action" => "Written Memo",
         ];
     }
 
-    if ($count === 3) {
-        return [
-            "data_correction_alert" => $alertMessage . " - Reached 3-error limit",
-            "disciplinary_action" => "Vocal Memo",
-        ];
-    }
-
     return [
-        "data_correction_alert" => $alertMessage,
-        "disciplinary_action" => "",
+        "data_correction_alert" => $alertMessage . " - Verbal memo threshold",
+        "disciplinary_action" => "Verbal Memo",
     ];
 }
 
 function getMonitoringActionOptions(): array
 {
-    return ["Vocal Memo", "Written Memo"];
+    return ["Verbal Memo", "Written Memo", "Final Memo"];
+}
+
+function getMonitoringIncidentReportOffense(): string
+{
+    return "Incident Report";
+}
+
+function getMonitoringIncidentReportResolvedAction(): string
+{
+    return "Resolved";
 }
 
 function getMonitoringDoneStatus(): string
@@ -344,6 +534,58 @@ function getMonitoringDoneStatus(): string
 function canMarkMonitoringRecordDone(?string $status): bool
 {
     return uppercaseText(trim((string) $status)) === uppercaseText("Pending");
+}
+
+function isMonitoringIncidentReportRecord(array $row): bool
+{
+    return uppercaseText(trim((string) ($row["offense"] ?? ""))) === uppercaseText(getMonitoringIncidentReportOffense());
+}
+
+function hasPendingMonitoringIncidentReportStatus(array $row): bool
+{
+    return isMonitoringIncidentReportRecord($row)
+        && containsMultiValueText((string) ($row["status"] ?? ""), "Pending");
+}
+
+function hasResolvedMonitoringIncidentReportStatus(array $row): bool
+{
+    return isMonitoringIncidentReportRecord($row)
+        && containsMultiValueText((string) ($row["status"] ?? ""), getMonitoringDoneStatus());
+}
+
+function resolveMonitoringIncidentReportStatus(?string $status): string
+{
+    $statusValues = splitMultiValueText($status);
+    if ($statusValues === []) {
+        return getMonitoringDoneStatus();
+    }
+
+    $resolvedValues = [];
+    $doneStatus = getMonitoringDoneStatus();
+    $hasDoneStatus = false;
+
+    foreach ($statusValues as $statusValue) {
+        if (uppercaseText($statusValue) === uppercaseText($doneStatus)) {
+            $hasDoneStatus = true;
+            break;
+        }
+    }
+
+    foreach ($statusValues as $statusValue) {
+        if (uppercaseText($statusValue) === uppercaseText("Pending")) {
+            if (!$hasDoneStatus) {
+                $resolvedValues[] = $doneStatus;
+                $hasDoneStatus = true;
+            }
+            continue;
+        }
+
+        if (!containsMultiValueText(implode(", ", $resolvedValues), $statusValue)) {
+            $resolvedValues[] = $statusValue;
+        }
+    }
+
+    return implode(", ", $resolvedValues);
 }
 
 function getSummaryHeaders(array $summaryColumns): array
@@ -360,6 +602,9 @@ function buildActiveFilterBadges(array $filters, ?string $fixedBranch = null): a
 
     if (($filters["month"] ?? "") !== "") {
         $badges[] = "Month: " . formatDisplayMonth($filters["month"]);
+    }
+    if (($filters["day"] ?? "") !== "") {
+        $badges[] = "Day: " . formatDisplayDate($filters["day"]);
     }
 
     if ($fixedBranch !== null) {
@@ -384,12 +629,16 @@ function buildActiveFilterBadges(array $filters, ?string $fixedBranch = null): a
         $badges[] = "Status: " . $filters["status"];
     }
 
+    if (($filters["disciplinary_action"] ?? "") !== "") {
+        $badges[] = "Action: " . $filters["disciplinary_action"];
+    }
+
     if (!empty($filters["data_correction_only"])) {
-        $badges[] = "Processed Type: Data Correction";
+        $badges[] = "Classification: User Error";
     }
 
     if (!empty($filters["escalation_only"])) {
-        $badges[] = "Escalation Candidates";
+        $badges[] = "Action Items";
     }
 
     return $badges;
@@ -397,8 +646,8 @@ function buildActiveFilterBadges(array $filters, ?string $fixedBranch = null): a
 
 function isEscalationCandidateMonitoringRecord(array $row): bool
 {
-    return containsMultiValueText((string) ($row["processed_type"] ?? ""), "Data Correction")
-        && (int) ($row["data_correction_offense_count"] ?? 0) >= 3;
+    return isUserErrorMonitoringRecord($row)
+        && (int) ($row["data_correction_offense_count"] ?? 0) >= 1;
 }
 
 function filterEscalationCandidateMonitoringRecords(array $records): array
@@ -522,11 +771,11 @@ function buildMonitoringDashboardData(
             }
         }
 
-        if (containsMultiValueText($processedTypeValue, "Data Correction")) {
+        if (uppercaseText($classificationValue) === uppercaseText("User Error")) {
             $metrics["data_correction_records"]++;
         }
 
-        if (((int) ($row["data_correction_offense_count"] ?? 0)) >= 3) {
+        if (((int) ($row["data_correction_offense_count"] ?? 0)) >= 1) {
             $metrics["escalation_records"]++;
         }
 

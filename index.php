@@ -1,4 +1,6 @@
 <?php
+require __DIR__ . "/includes/auth.php";
+requireMonitoringAuthentication();
 require "config.php";
 require __DIR__ . "/includes/monitoring_options.php";
 require __DIR__ . "/includes/monitoring_helpers.php";
@@ -20,16 +22,21 @@ $filterOptions = [
     "department" => $departmentOptions,
     "module" => $moduleOptions,
     "status" => $summaryStatusOptions,
+    "action" => getMonitoringActionOptions(),
     "per_page" => $monitoringSummaryRowsPerPageOptions,
 ];
 
 $tableNameSql = quoteMysqlIdentifier($company["table_name"]);
+$userNameSuggestions = fetchMonitoringUserNameSuggestions($pdo, $tableNameSql);
 $filters = buildMonitoringFilters($_GET, $company, $filterOptions);
 
-if (!empty($filters["escalation_only"])) {
+if (!empty($filters["escalation_only"]) || ($filters["disciplinary_action"] ?? "") !== "") {
     $dashboardRecords = fetchMonitoringRecords($pdo, $tableNameSql, $filters);
     $dashboardRecords = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, $dashboardRecords);
-    $dashboardRecords = filterEscalationCandidateMonitoringRecords($dashboardRecords);
+    if (!empty($filters["escalation_only"])) {
+        $dashboardRecords = filterEscalationCandidateMonitoringRecords($dashboardRecords);
+    }
+    $dashboardRecords = filterMonitoringRecordsByDisciplinaryAction($dashboardRecords, $filters);
     $totalRecords = count($dashboardRecords);
     $pagination = buildPaginationState($filters["page"], $filters["per_page"], $totalRecords);
     $filters["page"] = $pagination["page"];
@@ -42,6 +49,7 @@ if (!empty($filters["escalation_only"])) {
     $records = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, $records);
     $dashboardRecords = fetchMonitoringRecords($pdo, $tableNameSql, $filters);
     $dashboardRecords = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, $dashboardRecords);
+    $dashboardRecords = filterMonitoringRecordsByDisciplinaryAction($dashboardRecords, $filters);
 }
 
 $dashboardData = buildMonitoringDashboardData(
@@ -84,11 +92,12 @@ $ticketMonitoringUrl = buildUrl("ticket_monitoring.php", [
 ]);
 $clearFiltersUrl = buildUrl("index.php", ["company" => $company["key"]]);
 $exportUrl = buildUrl("export_excel.php", buildMonitoringListQueryParams($company["key"], $filters, false, $monitoringSummaryRowsPerPageOptions[0]));
+$printUrl = buildUrl("print_monitoring_summary.php", buildMonitoringListQueryParams($company["key"], $filters, false, $monitoringSummaryRowsPerPageOptions[0]));
 $activeFilterBadges = buildActiveFilterBadges($filters);
 $savedIdentificationNumber = trim((string) ($_GET["identification_number"] ?? ""));
 $savedTitle = "Record Saved";
 $savedMessage = $savedIdentificationNumber !== ""
-    ? "Record " . $savedIdentificationNumber . " successfully saved to the " . $company["table_name"] . " table."
+    ? ""
     : "";
 $validationErrorMessage = resolveMonitoringValidationErrorMessage($_GET["error"] ?? null);
 ?>

@@ -1,12 +1,17 @@
 <?php
+require __DIR__ . "/includes/auth.php";
+requireMonitoringAuthentication();
 require "config.php";
 require __DIR__ . "/includes/monitoring_options.php";
 require __DIR__ . "/includes/monitoring_helpers.php";
 require __DIR__ . "/includes/monitoring_repository.php";
 
 $company = resolveCompanyConfig($_GET["company"] ?? null, $companyConfigs);
+$fixedBranch = $company["fixed_branch"] ?? null;
+$showBranchSelector = $fixedBranch === null;
 ensureMonitoringTable($pdo, $company);
 $tableNameSql = quoteMysqlIdentifier($company["table_name"]);
+$userNameSuggestions = fetchMonitoringUserNameSuggestions($pdo, $tableNameSql);
 
 $filterOptions = [
     "branch" => $branchOptions,
@@ -14,6 +19,7 @@ $filterOptions = [
     "department" => $departmentOptions,
     "module" => $moduleOptions,
     "status" => $summaryStatusOptions,
+    "action" => getMonitoringActionOptions(),
     "per_page" => $monitoringSummaryRowsPerPageOptions,
 ];
 
@@ -51,6 +57,10 @@ $hyundaiUrl = buildUrl("monitoring_record.php", $recordPageQueryParams, [
 $headerKicker = $company["company_name"];
 $headerTitle = "Monitoring Record Details";
 $showCompanySwitch = true;
+$isEditMode = $record !== null && ($_GET["edit"] ?? "") === "1";
+$validationErrorMessage = resolveMonitoringValidationErrorMessage($_GET["error"] ?? null);
+$today = (new DateTimeImmutable("now", new DateTimeZone("Asia/Manila")))->format("Y-m-d");
+$nextMonitoringIdentificationNumber = $identificationNumber;
 
 $recordLookupMessage = null;
 if ($identificationNumber === "") {
@@ -64,6 +74,7 @@ $userTransactionRecords = [];
 $userTransactionSummaryUrl = "";
 if ($record !== null && $recordUserName !== "") {
     $userTransactionRecords = fetchMonitoringRecordsByUserName($pdo, $tableNameSql, $recordUserName);
+    $userTransactionRecords = enrichMonitoringRecordsWithDataCorrectionActions($pdo, $tableNameSql, $userTransactionRecords);
     $userTransactionSummaryUrl = buildUrl("index.php", [
         "company" => $company["key"],
         "user" => $recordUserName,
@@ -75,6 +86,17 @@ $incidentReportImageAbsolutePath = $incidentReportImagePath !== ""
     ? getMonitoringStoredFileAbsolutePath($incidentReportImagePath)
     : "";
 $incidentReportImageAvailable = $incidentReportImagePath !== "" && is_file($incidentReportImageAbsolutePath);
+$recordEditUrl = $record !== null
+    ? buildUrl("monitoring_record.php", $recordPageQueryParams, ["edit" => 1])
+    : "";
+$recordViewUrl = $record !== null
+    ? buildUrl("monitoring_record.php", $recordPageQueryParams, ["edit" => null])
+    : "";
+$isResolvedIncidentReport = $record !== null && hasResolvedMonitoringIncidentReportStatus($record);
+$savedTitle = "Record Updated";
+$savedMessage = $identificationNumber !== ""
+    ? "Record " . $identificationNumber . " successfully updated."
+    : "Record successfully updated.";
 
 function formatMonitoringDetailDisplayValue(array $field, array $row): string
 {
@@ -115,16 +137,17 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
                 <h2>Find Record</h2>
                 <p class="note">Search using the ID number generated when the incident was encoded.</p>
             </div>
-            <a href="<?= e($backUrl) ?>" class="button-link secondary">Back to Summary</a>
         </div>
 
         <form action="monitoring_record.php" method="GET" class="summary-filter-form">
             <input type="hidden" name="company" value="<?= e($company["key"]) ?>">
             <input type="hidden" name="month" value="<?= e($filters["month"] ?? "") ?>">
+            <input type="hidden" name="day" value="<?= e($filters["day"] ?? "") ?>">
             <input type="hidden" name="branch" value="<?= e($filters["branch"] ?? "") ?>">
             <input type="hidden" name="dealer" value="<?= e($filters["dealer"] ?? "") ?>">
             <input type="hidden" name="user" value="<?= e($filters["user_name"] ?? "") ?>">
             <input type="hidden" name="status" value="<?= e($filters["status"] ?? "") ?>">
+            <input type="hidden" name="action" value="<?= e($filters["disciplinary_action"] ?? "") ?>">
             <?php if (!empty($filters["data_correction_only"])): ?>
             <input type="hidden" name="data_correction" value="1">
             <?php endif; ?>
@@ -135,7 +158,7 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
 
             <div class="summary-filter-grid">
                 <div class="field">
-                    <label for="record-identification-number">ID Number</label>
+                    <label for="record-identification-number">ID number</label>
                     <input
                         type="text"
                         id="record-identification-number"
@@ -148,7 +171,10 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
             </div>
 
             <div class="summary-actions">
-                <button type="submit" class="primary">Search Record</button>
+                <button type="submit" class="primary icon-button" aria-label="Search record" title="Search record">
+                    <?= iconSvg("search") ?>
+                    <span class="sr-only">Search record</span>
+                </button>
             </div>
         </form>
     </section>
@@ -166,15 +192,39 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
                 <h2>Record Information</h2>
                 <p class="note">Full incident details for ID number <strong><?= e($identificationNumber) ?></strong>.</p>
             </div>
-            <a href="<?= e($backUrl) ?>" class="button-link secondary">Return to Summary</a>
+            <div class="summary-actions">
+                <?php if ($isEditMode): ?>
+                <a href="<?= e($recordViewUrl) ?>" class="button-link secondary icon-button" aria-label="Cancel edit" title="Cancel edit">
+                    <?= iconSvg("arrow-left") ?>
+                    <span class="sr-only">Cancel edit</span>
+                </a>
+                <?php else: ?>
+                <a href="<?= e($recordEditUrl) ?>" class="button-link secondary icon-button" aria-label="Edit record" title="Edit record">
+                    <?= iconSvg("edit") ?>
+                    <span class="sr-only">Edit record</span>
+                </a>
+                <?php endif; ?>
+            </div>
         </div>
 
+        <?php if (!$isEditMode && $isResolvedIncidentReport): ?>
+        <div class="form-alert form-alert-success record-status-notice" role="status">
+            <?= e(uppercaseText("Incident report resolved")) ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($isEditMode): ?>
+            <?php
+            $editingRecord = $record;
+            require __DIR__ . "/includes/partials/encoding_form.php";
+            ?>
+        <?php else: ?>
         <div class="record-layout">
             <section class="form-section compact-section">
                 <div class="field-grid compact record-top-grid">
                     <?php renderMonitoringReadonlyField("Date", formatMonitoringDetailDisplayValue(["key" => "date_recorded", "format" => "date"], $record)); ?>
-                    <?php renderMonitoringReadonlyField("Transaction Date", formatMonitoringDetailDisplayValue(["key" => "transaction_date", "format" => "date"], $record)); ?>
-                    <?php renderMonitoringReadonlyField("ID Number", formatMonitoringDetailDisplayValue(["key" => "identification_number", "format" => "text"], $record)); ?>
+                    <?php renderMonitoringReadonlyField("Transaction date", formatMonitoringDetailDisplayValue(["key" => "transaction_date", "format" => "date"], $record)); ?>
+                    <?php renderMonitoringReadonlyField("ID number", formatMonitoringDetailDisplayValue(["key" => "identification_number", "format" => "text"], $record)); ?>
                 </div>
             </section>
 
@@ -190,16 +240,16 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
             <section class="form-section">
                 <div class="field-grid">
                     <?php renderMonitoringReadonlyField("User", formatMonitoringDetailDisplayValue(["key" => "user_name", "format" => "text"], $record), "field-span-2"); ?>
-                    <?php renderMonitoringReadonlyField("Client Name", formatMonitoringDetailDisplayValue(["key" => "client_name", "format" => "text"], $record), "field-span-2"); ?>
-                    <?php renderMonitoringReadonlyField("Transaction Reference", formatMonitoringDetailDisplayValue(["key" => "invoice_reference", "format" => "text"], $record)); ?>
-                    <?php renderMonitoringReadonlyField("Payment Reference", formatMonitoringDetailDisplayValue(["key" => "payment_reference", "format" => "text"], $record)); ?>
+                    <?php renderMonitoringReadonlyField("Client name", formatMonitoringDetailDisplayValue(["key" => "client_name", "format" => "text"], $record), "field-span-2"); ?>
+                    <?php renderMonitoringReadonlyField("Transaction reference", formatMonitoringDetailDisplayValue(["key" => "invoice_reference", "format" => "text"], $record)); ?>
+                    <?php renderMonitoringReadonlyField("Payment reference", formatMonitoringDetailDisplayValue(["key" => "payment_reference", "format" => "text"], $record)); ?>
                     <?php renderMonitoringReadonlyField("Amount", formatMonitoringDetailDisplayValue(["key" => "amount", "format" => "amount"], $record)); ?>
                     <?php renderMonitoringReadonlyField("Ticket", formatMonitoringDetailDisplayValue(["key" => "ticket", "format" => "text"], $record)); ?>
                     <?php renderMonitoringReadonlyField("Reason", formatMonitoringDetailDisplayValue(["key" => "reason", "format" => "text"], $record), "field-span-2", true); ?>
-                    <?php renderMonitoringReadonlyField("System Admin", formatMonitoringDetailDisplayValue(["key" => "system_admin", "format" => "text"], $record)); ?>
+                    <?php renderMonitoringReadonlyField("System admin", formatMonitoringDetailDisplayValue(["key" => "system_admin", "format" => "text"], $record)); ?>
                     <?php renderMonitoringReadonlyField("Offense", formatMonitoringDetailDisplayValue(["key" => "offense", "format" => "text"], $record)); ?>
-                    <?php renderMonitoringReadonlyField("Approved By", formatMonitoringDetailDisplayValue(["key" => "approved_by", "format" => "text"], $record)); ?>
-                    <?php renderMonitoringReadonlyField("Processed By", formatMonitoringDetailDisplayValue(["key" => "processed_by", "format" => "text"], $record)); ?>
+                    <?php renderMonitoringReadonlyField("Approved by", formatMonitoringDetailDisplayValue(["key" => "approved_by", "format" => "text"], $record)); ?>
+                    <?php renderMonitoringReadonlyField("Processed by", formatMonitoringDetailDisplayValue(["key" => "processed_by", "format" => "text"], $record)); ?>
                     <?php renderMonitoringReadonlyField("Remarks", formatMonitoringDetailDisplayValue(["key" => "remarks", "format" => "text"], $record), "field-span-2", true); ?>
                 </div>
             </section>
@@ -207,14 +257,15 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
             <section class="form-section">
                 <div class="field-grid">
                     <?php renderMonitoringReadonlyField("Classification", formatMonitoringDetailDisplayValue(["key" => "classification", "format" => "text"], $record)); ?>
-                    <?php renderMonitoringReadonlyField("Processed Type", formatMonitoringDetailDisplayValue(["key" => "processed_type", "format" => "text"], $record)); ?>
+                    <?php renderMonitoringReadonlyField("Processed type", formatMonitoringDetailDisplayValue(["key" => "processed_type", "format" => "text"], $record)); ?>
                     <?php renderMonitoringReadonlyField("Status", formatMonitoringDetailDisplayValue(["key" => "status", "format" => "text"], $record)); ?>
                     <?php renderMonitoringReadonlyField("Alert", formatMonitoringDetailDisplayValue(["key" => "data_correction_alert", "format" => "text"], $record)); ?>
-                    <?php renderMonitoringReadonlyField("Disciplinary Action", formatMonitoringDetailDisplayValue(["key" => "disciplinary_action", "format" => "text"], $record), "field-span-2"); ?>
-                    <?php renderMonitoringReadonlyField("Encoded At", formatMonitoringDetailDisplayValue(["key" => "created_at", "format" => "timestamp"], $record), "field-span-2"); ?>
+                    <?php renderMonitoringReadonlyField("Disciplinary action", formatMonitoringDetailDisplayValue(["key" => "disciplinary_action", "format" => "text"], $record), "field-span-2"); ?>
+                    <?php renderMonitoringReadonlyField("Encoded at", formatMonitoringDetailDisplayValue(["key" => "created_at", "format" => "timestamp"], $record), "field-span-2"); ?>
                 </div>
             </section>
         </div>
+        <?php endif; ?>
     </section>
 
     <section class="card">
@@ -231,7 +282,10 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
                 <?php endif; ?>
             </div>
             <?php if ($userTransactionSummaryUrl !== ""): ?>
-            <a href="<?= e($userTransactionSummaryUrl) ?>" class="button-link secondary">Open User Summary</a>
+            <a href="<?= e($userTransactionSummaryUrl) ?>" class="button-link secondary icon-button" aria-label="Open user summary" title="Open user summary">
+                <?= iconSvg("search") ?>
+                <span class="sr-only">Open user summary</span>
+            </a>
             <?php endif; ?>
         </div>
 
@@ -253,6 +307,9 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
                         <th>Amount</th>
                         <th>Processed Type</th>
                         <th>Status</th>
+                        <th>User Error Count</th>
+                        <th>Alert</th>
+                        <th>Memo Status</th>
                         <th>View</th>
                     </tr>
                 </thead>
@@ -268,6 +325,9 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
                             ])
                             : "";
                         $isCurrentRecord = $historyRecordId === (int) ($record["id"] ?? 0);
+                        $historyUserErrorCount = (int) ($historyRow["data_correction_offense_count"] ?? 0);
+                        $historyAlertValue = trim((string) ($historyRow["data_correction_alert"] ?? ""));
+                        $historyMemoStatus = formatMonitoringMemoActionStatusDisplayValue($historyRow);
                         ?>
                     <tr<?= $isCurrentRecord ? ' class="record-history-current-row"' : "" ?>>
                         <td><?= e(formatMonitoringDetailDisplayValue(["key" => "date_recorded", "format" => "date"], $historyRow)) ?></td>
@@ -285,6 +345,9 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
                         <td><?= e(formatMonitoringDetailDisplayValue(["key" => "amount", "format" => "amount"], $historyRow)) ?></td>
                         <td><?= e(formatMonitoringDetailDisplayValue(["key" => "processed_type", "format" => "text"], $historyRow)) ?></td>
                         <td><?= e(formatMonitoringDetailDisplayValue(["key" => "status", "format" => "text"], $historyRow)) ?></td>
+                        <td><?= e($historyUserErrorCount > 0 ? (string) $historyUserErrorCount : "N/A") ?></td>
+                        <td><?= e($historyAlertValue !== "" ? uppercaseText($historyAlertValue) : "N/A") ?></td>
+                        <td><?= e($historyMemoStatus !== "" ? uppercaseText($historyMemoStatus) : "N/A") ?></td>
                         <td class="record-history-view-cell">
                             <?php if ($isCurrentRecord): ?>
                             <span class="record-history-current-label">Watching</span>
@@ -308,7 +371,10 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
                 <h2>Incident Report Image</h2>
             </div>
             <?php if ($incidentReportImageAvailable): ?>
-            <a href="<?= e($incidentReportImagePath) ?>" class="button-link secondary" target="_blank" rel="noopener">Open Full Image</a>
+            <a href="<?= e($incidentReportImagePath) ?>" class="button-link secondary icon-button" target="_blank" rel="noopener" aria-label="Open full image" title="Open full image">
+                <?= iconSvg("external-link") ?>
+                <span class="sr-only">Open full image</span>
+            </a>
             <?php endif; ?>
         </div>
 
@@ -326,8 +392,12 @@ function renderMonitoringReadonlyField(string $label, string $value, string $fie
         <p class="note">No incident report image was uploaded for this record.</p>
         <?php endif; ?>
     </section>
-    <?php endif; ?>
+<?php endif; ?>
 </main>
+
+<?php if (isset($_GET["updated"])): ?>
+    <?php require __DIR__ . "/includes/partials/saved_modal.php"; ?>
+<?php endif; ?>
 
 <script src="assets/js/index.js" defer></script>
 </body>

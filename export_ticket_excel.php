@@ -1,4 +1,6 @@
 <?php
+require __DIR__ . "/includes/auth.php";
+requireMonitoringAuthentication();
 require "config.php";
 require __DIR__ . "/includes/monitoring_options.php";
 require __DIR__ . "/includes/monitoring_helpers.php";
@@ -13,7 +15,7 @@ ensureTicketMonitoringTable($pdo, $company);
 
 $filterOptions = [
     "branch" => $branchOptions,
-    "dealer" => $dealerOptions,
+    "dealer" => $dealerOptions, 
     "status" => $ticketStatusOptions,
     "per_page" => $rowsPerPageOptions,
 ];
