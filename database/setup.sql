@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS `micei_system_monitoring` (
     offense VARCHAR(150),
     disciplinary_action VARCHAR(100),
     action_taken VARCHAR(100),
-    memo_printed_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -59,7 +58,6 @@ CREATE TABLE IF NOT EXISTS `ntr_system_monitoring` (
     offense VARCHAR(150),
     disciplinary_action VARCHAR(100),
     action_taken VARCHAR(100),
-    memo_printed_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

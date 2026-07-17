@@ -93,7 +93,7 @@ $companyConfigs = [
         "logo_path" => "assets/images/mitsubishi-logo.png",
         "logo_type" => "image/png",
         "logo_alt" => "Mitsubishi Motors Drive your Ambition",
-        "memo_template" => "MGSC_VerbalWarningMemo.docx",
+        "verbal_memo_template" => "MGSC_VerbalWarningMemo.docx",
         "export_slug" => "micei",
     ],
     "hyundai" => [
@@ -109,7 +109,7 @@ $companyConfigs = [
         "logo_path" => "assets/images/hyundai_logo.png",
         "logo_type" => "image/png",
         "logo_alt" => "Hyundai Company",
-        "memo_template" => "NGSC_VerbalWarningMemo.docx",
+        "verbal_memo_template" => "NGSC_VerbalWarningMemo.docx",
         "export_slug" => "ntr",
     ],
 ];
@@ -361,7 +361,6 @@ function ensureMonitoringTable(PDO $pdo, array $company): void
             offense VARCHAR(150),
             disciplinary_action VARCHAR(100),
             action_taken VARCHAR(100),
-            memo_printed_at DATETIME NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )"
     );
@@ -370,7 +369,6 @@ function ensureMonitoringTable(PDO $pdo, array $company): void
     ensureMysqlTableColumn($pdo, $tableNameSql, "incident_report_image_path", "incident_report_image_path VARCHAR(255) NULL AFTER remarks");
     ensureMysqlTableColumn($pdo, $tableNameSql, "disciplinary_action", "disciplinary_action VARCHAR(100) AFTER offense");
     ensureMysqlTableColumn($pdo, $tableNameSql, "action_taken", "action_taken VARCHAR(100) AFTER offense");
-    ensureMysqlTableColumn($pdo, $tableNameSql, "memo_printed_at", "memo_printed_at DATETIME NULL AFTER action_taken");
     syncLegacyTableIntoTargetIfNeeded($pdo, $company["legacy_table_names"] ?? [], $company["table_name"]);
     backfillMonitoringDealerValues($pdo, $tableNameSql);
     backfillMonitoringModuleValues($pdo, $tableNameSql);

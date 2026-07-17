@@ -99,11 +99,6 @@ function getMonitoringMemoActionRank(string $action): int
     };
 }
 
-function hasPrintedMonitoringMemo(array $row): bool
-{
-    return trim((string) ($row["memo_printed_at"] ?? "")) !== "";
-}
-
 function getIssuedMonitoringMemoAction(array $row): string
 {
     $actionValues = [];
