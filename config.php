@@ -72,12 +72,12 @@ $appEnvironmentLabel = getApplicationEnvironmentLabel($appEnvironmentName);
 $host = "localhost";
 $baseDbname = "system_monitoring_db";
 $dbname = buildApplicationDatabaseName($baseDbname, $appEnvironmentName);
-$username = "chel";
-$password = "Wysiwyg1721!";
+$username = "root";
+$password = "";
 
 // Excel export helper Python executable.
 // Using the absolute path avoids PATH differences between the terminal and Apache/PHP.
-$pythonCommand = "C:\\Users\\IT TechSupport 3\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe";
+$pythonCommand = "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\python.exe";
 
 $companyConfigs = [
     "mitsubishi" => [

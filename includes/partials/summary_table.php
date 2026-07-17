@@ -236,9 +236,9 @@ $formatCardValue = static function (string $value): string {
                     </a>
                     <?php endif; ?>
                     <?php if ($memoRecordUrl !== ""): ?>
-                    <a href="<?= e($memoRecordUrl) ?>" class="button-link secondary icon-button summary-card-edit-link" aria-label="Download draft memo" title="Download draft memo">
+                    <a href="<?= e($memoRecordUrl) ?>" class="button-link secondary icon-button summary-card-edit-link" aria-label="Download memo" title="Download memo">
                         <?= iconSvg("file-text") ?>
-                        <span class="sr-only">Download draft memo</span>
+                        <span class="sr-only">Download Memo</span>
                     </a>
                     <?php endif; ?>
                     <?php if ($showIncidentReportResolveButton): ?>
