@@ -97,6 +97,12 @@ function buildMemoFilenameSegment(string $value): string
 
 function buildDraftMemoDocx(array $company, array $record): string
 {
+    $memoAction = normalizeMonitoringMemoAction((string) ($record["disciplinary_action"] ?? ""));
+    $verbalMemoTemplate = trim((string) ($company["verbal_memo_template"] ?? ""));
+    if ($memoAction === "Verbal Memo" && $verbalMemoTemplate !== "") {
+        return buildVerbalMemoFromTemplate($record, $verbalMemoTemplate);
+    }
+
     $basePath = tempnam(sys_get_temp_dir(), "monitoring_memo_");
     if ($basePath === false) {
         throw new RuntimeException("Unable to allocate a temporary memo file.");
@@ -122,6 +128,70 @@ function buildDraftMemoDocx(array $company, array $record): string
     }
 
     return $docxPath;
+}
+
+function buildVerbalMemoFromTemplate(array $record, string $templateFilename): string
+{
+    $templatePath = __DIR__ . DIRECTORY_SEPARATOR . "assets" . DIRECTORY_SEPARATOR . "templates"
+        . DIRECTORY_SEPARATOR . basename($templateFilename);
+    if (!is_file($templatePath)) {
+        throw new RuntimeException("The verbal memo Word template is missing.");
+    }
+
+    $basePath = tempnam(sys_get_temp_dir(), "monitoring_verbal_memo_");
+    if ($basePath === false) {
+        throw new RuntimeException("Unable to allocate a temporary verbal memo file.");
+    }
+
+    @unlink($basePath);
+    $docxPath = $basePath . ".docx";
+    $invoiceReference = memoTemplateValue($record, "invoice_reference");
+    $referenceNumber = $invoiceReference !== "N/A"
+        ? $invoiceReference
+        : memoTemplateValue($record, "payment_reference");
+
+    $payloadPath = tempnam(sys_get_temp_dir(), "monitoring_memo_payload_");
+    if ($payloadPath === false) {
+        throw new RuntimeException("Unable to allocate a temporary memo payload.");
+    }
+
+    try {
+        $payload = [
+            "output" => $docxPath,
+            "template" => $templatePath,
+            "memo_values" => [
+                "user_name" => memoTemplateValue($record, "user_name"),
+                "date_recorded" => memoTemplateValue($record, "date_recorded", "date"),
+                "reference_number" => $referenceNumber,
+                "transaction_date" => memoTemplateValue($record, "transaction_date", "date"),
+                "branch" => memoTemplateValue($record, "branch"),
+                "module" => memoTemplateValue($record, "module"),
+                "amount" => memoTemplateValue($record, "amount", "amount"),
+                "reason" => memoTemplateValue($record, "reason"),
+                "remarks" => memoTemplateValue($record, "remarks"),
+            ],
+        ];
+        $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        if (file_put_contents($payloadPath, $json) === false) {
+            throw new RuntimeException("Unable to write the verbal memo payload.");
+        }
+
+        runPythonMemoExporter($payloadPath);
+    } finally {
+        @unlink($payloadPath);
+    }
+
+    if (!is_file($docxPath) || filesize($docxPath) === 0) {
+        throw new RuntimeException("The verbal memo Word file was not created.");
+    }
+
+    return $docxPath;
+}
+
+function memoTemplateValue(array $record, string $key, string $format = "text"): string
+{
+    $value = trim((string) formatSummaryValue(["key" => $key, "format" => $format], $record));
+    return $value !== "" ? $value : "N/A";
 }
 
 function buildDocxWithZipArchive(string $docxPath, array $files): void

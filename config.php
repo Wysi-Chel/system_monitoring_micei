@@ -93,6 +93,7 @@ $companyConfigs = [
         "logo_path" => "assets/images/mitsubishi-logo.png",
         "logo_type" => "image/png",
         "logo_alt" => "Mitsubishi Motors Drive your Ambition",
+        "verbal_memo_template" => "MGSC_VerbalWarningMemo.docx",
         "export_slug" => "micei",
     ],
     "hyundai" => [
@@ -108,6 +109,7 @@ $companyConfigs = [
         "logo_path" => "assets/images/hyundai_logo.png",
         "logo_type" => "image/png",
         "logo_alt" => "Hyundai Company",
+        "verbal_memo_template" => "NGSC_VerbalWarningMemo.docx",
         "export_slug" => "ntr",
     ],
 ];
